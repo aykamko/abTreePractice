@@ -41,8 +41,6 @@ svg:not(.active):not(.ctrl) path.link {
 }
 
 path.node {
-  stroke-width: 1.5px;
-  cursor: pointer;
   width: 65px;
 }
 
@@ -55,7 +53,7 @@ text {
   pointer-events: none;
 }
 
-text.id {
+text.value {
   text-anchor: middle;
   font-weight: bold;
 }

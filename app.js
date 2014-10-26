@@ -94,6 +94,8 @@ angular.module('abTreePractice', ['d3'])
             svgHeight = 800,
             svgMargin = 40,
             nodeSideLength = 80,
+            triNodeHeight = Math.sqrt(Math.pow(nodeSideLength, 2) -
+                Math.pow((nodeSideLength/2), 2)),
             backgroundColor = '#eeeeee';
 
         d3Service.d3().then(function(d3) {
@@ -202,27 +204,6 @@ angular.module('abTreePractice', ['d3'])
             // NB: the function arg is crucial here! nodes are known by id, not by index!
             vertex = vertex.data(nodes, function(d) { return d.id; });
 
-            // update existing nodes (reflexive & selected visual states)
-            // vertex.selectAll('vertex')
-            //   .style('fill', function(d) { return (d === selectedNode) ? d3.rgb(colors(d.id)).brighter().toString() : colors(d.id); })
-
-            vertex.select('rect.cursor')
-              .attr('x', function(node) {
-                var nodeVal = node.value;
-                var valStr = (nodeVal == null) ? '' : nodeVal.toString();
-
-                var valSVG = d3.select(this.parent).select('text').node();
-                var valSVGLength = valSVG
-                  ? valSVG.getComputedTextLength()
-                    : 0;
-
-                var xAdjust = valSVGLength / (valStr.length + Number.MIN_VALUE);
-                return node.x - (valSVGLength / 2) + (xAdjust * valCharIndex) - 0.5;
-              })
-              .attr('y', function(node) {
-                return node.y - 8;
-              });
-
             // add new nodes
             var g = vertex.enter().append('svg:g');
 
@@ -240,7 +221,7 @@ angular.module('abTreePractice', ['d3'])
                          'L' + a + "," + (-ns - a) +
                          'L' + a + "," + -a;
                 }
-                var h = Math.sqrt(Math.pow(s, 2) - Math.pow((s/2), 2));
+                var h = triNodeHeight;
                 // triangular min/max nodes
                 return 'M' + 0 + "," + 0 +
                        'L' + s + "," + 0 +
@@ -248,18 +229,22 @@ angular.module('abTreePractice', ['d3'])
                        'L' + 0 + "," + 0;
               })
               .attr('transform', function(d) {
-                var halfSide = nodeSideLength / 2;
+                var halfSide = nodeSideLength / 2,
+                    halfHeight = triNodeHeight / 2;
                 var t = '', r = '';
-                if (d.nodeType == NodeEnum.maxNode ||
-                    d.nodeType == NodeEnum.leafNode) {
+                if (d.nodeType == NodeEnum.leafNode) {
                   t = 'translate(' +
                            (d.x - halfSide) + ',' +
                            (d.y + halfSide) + ')';
                   r = '';
+                } else if (d.nodeType == NodeEnum.maxNode) {
+                  t = 'translate(' +
+                           (d.x - halfSide) + ',' +
+                           (d.y + halfHeight) + ')';
                 } else if (d.nodeType == NodeEnum.minNode) {
                   t = 'translate(' +
                            (d.x + halfSide) + ',' +
-                           (d.y - halfSide) + ')';
+                           (d.y - halfHeight) + ')';
                   r = ' rotate(180)';
                 }
                 return t + r;
@@ -269,9 +254,42 @@ angular.module('abTreePractice', ['d3'])
               .on('mousedown', function(d) {
                 // select node
                 mousedownNode = d;
+                d.oldVal = d.value;
                 d.nodeEle = d3.select(this.parentNode);
                 restart();
               });
+
+            // show node IDs
+            g.append('svg:text')
+              .attr('class', 'value')
+
+            // remove old nodes
+            vertex.exit().remove();
+
+            // update existing node values
+            vertex.select('text.value')
+              .attr('x', function(d) { return d.x })
+              .attr('y', function(d) { return d.y + 6 })
+              .text(function(d) { return (d.value != null) ? d.value : ''; });
+
+            // update existing cursor
+            vertex.select('rect.cursor')
+              .attr('x', function(node) {
+                var nodeVal = node.value;
+                var valStr = (nodeVal == null) ? '' : nodeVal.toString();
+
+                var valSVG = d3.select(this.parentNode).select('text').node();
+                var valSVGLength = valSVG
+                  ? valSVG.getComputedTextLength()
+                    : 0;
+
+                var xAdjust = valSVGLength / (valStr.length + Number.MIN_VALUE);
+                return node.x - (valSVGLength / 2) + (xAdjust * valCharIndex) - 0.5;
+              })
+              .attr('y', function(node) {
+                return node.y - 8;
+              });
+
               // .on('mouseover', function(d) {
               //   if (!mousedownNode || d === mousedownNode) {
               //     return;
@@ -337,22 +355,13 @@ angular.module('abTreePractice', ['d3'])
               //   restart();
               // });
 
-            // show node IDs
-            g.append('svg:text')
-                .attr('x', function(d) { return d.x })
-                .attr('y', function(d) { return d.y + 6 })
-                .attr('class', 'id')
-                .text(function(d) { return (d.value != null) ? d.value : ''; });
-
-            // remove old nodes
-            vertex.exit().remove();
           };
 
           // node value editing variables and functions
           var valCharIndex = null,
               cursorRect = null,
               valStr = null;
-          function incrValCharIndex(valStr) {
+          function incrValCharIndex() {
             valCharIndex = Math.min(valCharIndex + 1, valStr.length);
           }
           function decrValCharIndex() {
@@ -369,6 +378,14 @@ angular.module('abTreePractice', ['d3'])
             cursorRect.remove();
             cursorRect = null;
           }
+          function discardNodeValueChanges() {
+            selectedNode.value = selectedNode.oldVal;
+            valCharIndex = null;
+            valStr = null;
+            selectedNode = null;
+            cursorRect.remove();
+            cursorRect = null;
+          }
 
           function svgMouseDown() {
             if (selectedNode && (mousedownNode !== selectedNode)) {
@@ -378,7 +395,7 @@ angular.module('abTreePractice', ['d3'])
             if (mousedownNode) {
               if (mousedownNode === selectedNode) { return; }
               selectedNode = mousedownNode;
-              // resetUnselectedVars('node');
+              mousedownNode = null;
 
               nodeValue = selectedNode.value
               valStr = (nodeValue == null) ? '' : nodeValue.toString();
@@ -417,35 +434,39 @@ angular.module('abTreePractice', ['d3'])
           // only respond once per keydown
           var lastKeyDown = -1;
 
-          function keydown() {
+          function windowKeyDown() {
 
             lastKeyDown = d3.event.keyCode;
 
             // Editing Edge Weights
-            if (selectedWeightLink) {
-              weightStr = selectedWeightLink.weight.toString();
-              if ((lastKeyDown > 47 && lastKeyDown < 58)
-                  || lastKeyDown == 189 || lastKeyDown == 190) {  //number keys, minus dash, and decimal point
-                var leftSlice = weightStr.slice(0, weightCharIndex),
-                rightSlice = weightStr.slice(weightCharIndex, weightStr.length),
-                lastKeyDown = (lastKeyDown > 188) ? (lastKeyDown - 144) : lastKeyDown,
-                  newNum = String.fromCharCode(lastKeyDown);
-                weightStr = leftSlice + newNum + rightSlice;
-                selectedWeightLink.weight = weightStr;
-                incrementWeightCharIndex(weightStr);
-              } else if (lastKeyDown == 8) {  //backspace
+            if (selectedNode) {
+              var nodeVal = selectedNode.value;
+              valStr = (nodeVal == null) ? '' : nodeVal.toString();
+              if ((lastKeyDown > 47 && lastKeyDown < 58) // number keys
+                  || lastKeyDown == 189 // minus dash
+                  || lastKeyDown == 190) { // decimal point
+                var leftSlice = valStr.slice(0, valCharIndex),
+                    rightSlice = valStr.slice(valCharIndex, valStr.length),
+                    lastKeyDown = (lastKeyDown > 188) ? (lastKeyDown - 144) : lastKeyDown,
+                    newNum = String.fromCharCode(lastKeyDown);
+                valStr = leftSlice + newNum + rightSlice;
+                selectedNode.value = valStr;
+                incrValCharIndex();
+              } else if (lastKeyDown == 8) { // backspace
                 d3.event.preventDefault();
-                var leftSlice = weightStr.slice(0, Math.max(0, weightCharIndex - 1)),
-                rightSlice = weightStr.slice(weightCharIndex, weightStr.length);
-                weightStr = leftSlice + rightSlice;
-                selectedWeightLink.weight = weightStr;
-                decrementWeightCharIndex(weightStr);
-              } else if (lastKeyDown == 37) {  //left arrow
-                decrementWeightCharIndex(weightStr);
-              } else if (lastKeyDown == 39) {  //right arrow
-                incrementWeightCharIndex(weightStr);
-              } else if (lastKeyDown == 13) {  //enter
-                parseAndSetWeight();
+                var leftSlice = valStr.slice(0, Math.max(0, valCharIndex - 1)),
+                    rightSlice = valStr.slice(valCharIndex, valStr.length);
+                valStr = leftSlice + rightSlice;
+                selectedNode.value = valStr;
+                decrValCharIndex();
+              } else if (lastKeyDown == 37) {  // left arrow
+                decrValCharIndex();
+              } else if (lastKeyDown == 39) {  // right arrow
+                incrValCharIndex();
+              } else if (lastKeyDown == 13) {  // enter
+                parseAndSetNodeValue();
+              } else if (lastKeyDown == 27) {  // escape
+                discardNodeValueChanges();
               }
               restart();
               return;
@@ -453,21 +474,14 @@ angular.module('abTreePractice', ['d3'])
 
           }
 
-          function keyup() {
-            // ctrl
-            if(lastKeyDown = 16) {
-              circle
-                .on('mousedown.drag', null)
-                .on('touchstart.drag', null);
-              svg.classed('ctrl', false);
-            }
-
+          function windowKeyUp() {
             lastKeyDown = -1;
           }
 
           svg.on('mousedown', svgMouseDown);
-          window.on('keydown', keydown)
-            .on('keyup', keyup)
+          d3.select(window)
+            .on('keydown', windowKeyDown)
+            .on('keyup', windowKeyUp)
           restart();
 
           // function mousedown() {
