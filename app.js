@@ -98,8 +98,7 @@ angular.module('abTreePractice', ['d3'])
                 Math.pow((nodeSideLength/2), 2)),
             triCenterFromBaseDist = Math.sqrt(
                 Math.pow((nodeSideLength / Math.sqrt(3)), 2) -
-                Math.pow((nodeSideLength / 2),2)),
-            backgroundColor = '#eeeeee';
+                Math.pow((nodeSideLength / 2),2));
 
         d3Service.d3().then(function(d3) {
           var colors = d3.scale.category10();
@@ -107,8 +106,7 @@ angular.module('abTreePractice', ['d3'])
           var svg = d3.select(element[0])
             .append('svg')
             .attr('width', svgWidth)
-            .attr('height', svgHeight)
-            .style('background', backgroundColor);
+            .attr('height', svgHeight);
 
           var lastNodeId = -1;
           var nodes = [],
@@ -178,7 +176,8 @@ angular.module('abTreePractice', ['d3'])
             });
 
             // update existing links
-            path.select('path.link').classed('selected', function(d) { return d.selected; });
+            path.select('path.link')
+              .classed('selected', function(d) { return d.selected; });
 
             // add new links
             var newLinks = path.enter().append('svg:g');
@@ -198,6 +197,16 @@ angular.module('abTreePractice', ['d3'])
               .on('mousedown', function(d) {
                 d.selected = !d.selected;
                 restart();
+              })
+              .on('mouseover', function(d) {
+                // color target link
+                d3.select(this.parentNode).select('path.link')
+                  .classed('hover', true);
+              })
+              .on('mouseout', function(d) {
+                // uncolor target link
+                d3.select(this.parentNode).select('path.link')
+                  .classed('hover', false);
               });
 
             // remove old links
@@ -208,10 +217,15 @@ angular.module('abTreePractice', ['d3'])
             vertex = vertex.data(nodes, function(d) { return d.id; });
 
             // add new nodes
-            var g = vertex.enter().append('svg:g');
+            var g = vertex.enter().append('svg:g')
+              .attr('class', function(d) {
+                return (d.nodeType == NodeEnum.leafNode) ? 'leaf' : 'node';
+              });
 
             g.append('svg:path')
-              .attr('class', 'node')
+              .each(function(d) {
+                d.nodeEle = d3.select(this.parentNode);
+              })
               .attr('d', function(d) {
                 var s = nodeSideLength;
                 if (d.nodeType == NodeEnum.leafNode) {
@@ -251,13 +265,13 @@ angular.module('abTreePractice', ['d3'])
                 }
                 return t + r;
               })
-              .style('fill', function(d) { return (d === selectedNode) ? d3.rgb(colors(d.id)).brighter().toString() : 'white'; })
+              // .style('fill', function(d) { return (d === selectedNode) ? d3.rgb(colors(d.id)).brighter().toString() : 'white'; })
               .style('stroke', function(d) { return 'black'; })
               .on('mousedown', function(d) {
                 // select node
+                if (d.nodeType == NodeEnum.leafNode) { return; }
                 mousedownNode = d;
                 d.oldVal = d.value;
-                d.nodeEle = d3.select(this.parentNode);
                 restart();
               });
 
@@ -464,8 +478,10 @@ angular.module('abTreePractice', ['d3'])
                 selectedNode.value = valStr;
                 decrValCharIndex();
               } else if (lastKeyDown == 37) {  // left arrow
+                d3.event.preventDefault();
                 decrValCharIndex();
               } else if (lastKeyDown == 39) {  // right arrow
+                d3.event.preventDefault();
                 incrValCharIndex();
               } else if (lastKeyDown == 13) {  // enter
                 parseAndSetNodeValue();

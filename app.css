@@ -1,5 +1,5 @@
 svg {
-  background-color: #FFF;
+  background-color: #EEE;
   cursor: default;
   -webkit-user-select: none;
   -moz-user-select: none;
@@ -8,15 +8,14 @@ svg {
   user-select: none;
 }
 
-svg:not(.active):not(.ctrl) {
-  cursor: crosshair;
-}
-
 path.link {
   fill: none;
   stroke: #000;
   stroke-width: 4px;
-  cursor: default;
+}
+
+path.link.hover {
+  stroke: #666666;
 }
 
 path.link.selected {
@@ -24,28 +23,39 @@ path.link.selected {
   stroke: #800000;
 }
 
-path.link.hidden {
-  stroke-width: 0;
+path.link.selected.hover {
+  stroke: #cd0000;
 }
 
 path.mouselink {
   stroke-width: 30px;
   stroke: #000;
   stroke-opacity: 0;
-  fill: none;
   cursor: pointer;
 }
 
-svg:not(.active):not(.ctrl) path.link {
-  cursor: pointer;
+/* path.mouselink:hover { */
+/*   stroke-width: 10px; */
+/*   stroke: #000; */
+/*   stroke-opacity: 0.3; */
+/*   cursor: pointer; */
+/* } */
+
+g.leaf path {
+  fill: #FFF;
 }
 
-path.node {
-  width: 65px;
+g.node path {
+  cursor: pointer;
+  fill: #FFF;
+}
+
+g.node path:hover {
+  fill: #EEE;
 }
 
 rect.cursor {
-  fill: #590000;
+  fill: #666;
 }
 
 text {
