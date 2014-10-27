@@ -96,6 +96,9 @@ angular.module('abTreePractice', ['d3'])
             nodeSideLength = 80,
             triNodeHeight = Math.sqrt(Math.pow(nodeSideLength, 2) -
                 Math.pow((nodeSideLength/2), 2)),
+            triCenterFromBaseDist = Math.sqrt(
+                Math.pow((nodeSideLength / Math.sqrt(3)), 2) -
+                Math.pow((nodeSideLength / 2),2)),
             backgroundColor = '#eeeeee';
 
         d3Service.d3().then(function(d3) {
@@ -229,8 +232,7 @@ angular.module('abTreePractice', ['d3'])
                        'L' + 0 + "," + 0;
               })
               .attr('transform', function(d) {
-                var halfSide = nodeSideLength / 2,
-                    halfHeight = triNodeHeight / 2;
+                var halfSide = nodeSideLength / 2;
                 var t = '', r = '';
                 if (d.nodeType == NodeEnum.leafNode) {
                   t = 'translate(' +
@@ -240,11 +242,11 @@ angular.module('abTreePractice', ['d3'])
                 } else if (d.nodeType == NodeEnum.maxNode) {
                   t = 'translate(' +
                            (d.x - halfSide) + ',' +
-                           (d.y + halfHeight) + ')';
+                           (d.y + triCenterFromBaseDist) + ')';
                 } else if (d.nodeType == NodeEnum.minNode) {
                   t = 'translate(' +
                            (d.x + halfSide) + ',' +
-                           (d.y - halfHeight) + ')';
+                           (d.y - triCenterFromBaseDist) + ')';
                   r = ' rotate(180)';
                 }
                 return t + r;
@@ -269,7 +271,9 @@ angular.module('abTreePractice', ['d3'])
             // update existing node values
             vertex.select('text.value')
               .attr('x', function(d) { return d.x })
-              .attr('y', function(d) { return d.y + 6 })
+              .attr('y', function(d) {
+                return d.y + 6;
+              })
               .text(function(d) { return (d.value != null) ? d.value : ''; });
 
             // update existing cursor
