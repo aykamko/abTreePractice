@@ -78,9 +78,22 @@ angular.module('abTreePractice', ['d3'])
     };
 
     $scope.reRender = function() { return; }
+    $scope.actionLQ = null;
     $scope.alphaBeta = function() {
-      $scope.tree.alphaBeta();
-      $scope.reRender();
+      window.a = $scope.actionLQ = $scope.tree.alphaBeta();
+      $scope.actionLQ.inAction = true;
+    }
+    $scope.stepForward = function() {
+      if ($scope.actionLQ) {
+        $scope.actionLQ.stepForward();
+        $scope.reRender();
+      }
+    }
+    $scope.stepBackward = function() {
+      if ($scope.actionLQ) {
+        $scope.actionLQ.stepBackward();
+        $scope.reRender();
+      }
     }
 
   }])
@@ -213,7 +226,12 @@ angular.module('abTreePractice', ['d3'])
 
             // update existing links
             path.select('path.link')
-              .classed('pruned', function(d) { return d.pruned; });
+              .classed('pruned', function(d) { return d.pruned; })
+              .classed('entered', function(d) {
+                console.log(this);
+                console.log(d);
+                return d.entered;
+              });
 
             // vertex (node) group
             // NB: the function arg is crucial here! nodes are known by id, not by index!
@@ -221,8 +239,9 @@ angular.module('abTreePractice', ['d3'])
 
             // add new nodes
             var g = vertex.enter().append('svg:g')
-              .attr('class', function(d) {
-                return (d.nodeType == NodeEnum.leafNode) ? 'leaf' : 'node';
+              .classed('node', true)
+              .classed('leaf', function(d) {
+                return (d.nodeType == NodeEnum.leafNode);
               });
 
             g.append('svg:path')
@@ -268,7 +287,6 @@ angular.module('abTreePractice', ['d3'])
                 }
                 return t + r;
               })
-              // .style('fill', function(d) { return (d === selectedNode) ? d3.rgb(colors(d.id)).brighter().toString() : 'white'; })
               .style('stroke', function(d) { return 'black'; })
               .on('mousedown', function(d) {
                 // select node
@@ -284,6 +302,9 @@ angular.module('abTreePractice', ['d3'])
 
             // remove old nodes
             vertex.exit().remove();
+
+            vertex
+              .classed('entered', function(d) { return d.entered; });
 
             // update existing node values
             vertex.select('text.value')
@@ -312,7 +333,6 @@ angular.module('abTreePractice', ['d3'])
               });
           };
           scope.reRender = restart;
-          window.restart = restart;
 
           // node value editing variables and functions
           var valCharIndex = null,

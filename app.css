@@ -18,6 +18,11 @@ path.link.hover {
   stroke: #666666;
 }
 
+path.link.entered,
+path.link.entered.hover {
+  stroke: #00b300;
+}
+
 path.link.pruned {
   stroke-dasharray: 10,10;
   stroke: #800000;
@@ -35,17 +40,25 @@ path.mouselink {
 }
 
 
-g.leaf path {
-  fill: #FFF;
-}
-
 g.node path {
   cursor: pointer;
   fill: #FFF;
 }
-
 g.node path:hover {
   fill: #EEE;
+}
+g.node.entered path {
+  fill: #EEFFEE;
+}
+g.node.entered path:hover {
+  fill: #EEFFEE;
+}
+
+g.node.leaf path {
+  fill: #FFF;
+}
+g.node.entered.leaf path {
+  fill: #EEEEFF;
 }
 
 rect.cursor {
