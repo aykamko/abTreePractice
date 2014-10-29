@@ -36,9 +36,10 @@ Tree.prototype.alphaBeta = function() {
   }
 
   var abActions = function(node, bFac, a, b, maxNode, actionLQ) {
-    var enterActions = [];
-    enterActions.push(new Action(node.parentLink, 'entered', false, true));
-    enterActions.push(new Action(node, 'entered', false, true));
+    var enterActions = [
+      new Action(node.parentLink, 'entered', false, true),
+      new Action(node, 'entered', false, true),
+    ];
     var childActionsList = [];
 
     if (node.nodeType == treeNodeTypeEnum.leafNode) {
@@ -113,10 +114,11 @@ Tree.prototype.alphaBeta = function() {
       newVal = b;
     }
     childActionsList.push(lastChildExitActions);
-    var exitActions = []
-    exitActions.push(new Action(node.parentLink, 'entered', true, false));
-    exitActions.push(new Action(node, 'entered', true, false));
-    exitActions.push(new Action(node, 'value', node.value, newVal));
+    var exitActions = [
+      new Action(node.parentLink, 'entered', true, false),
+      new Action(node, 'entered', true, false),
+      new Action(node, 'value', node.value, newVal),
+    ];
 
     return {
       returnVal: newVal,
