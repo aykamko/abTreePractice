@@ -75,3 +75,8 @@ text.value {
   text-anchor: middle;
   font-weight: bold;
 }
+
+text.alpha,
+text.beta {
+  font-family: "Helvetica Neue", sans-serif;
+}

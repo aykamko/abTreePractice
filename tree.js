@@ -76,7 +76,6 @@ Tree.prototype.alphaBeta = function() {
           res = abActions(child, bFac, a, b, !maxNode, actionLQ);
           setValActions = [];
           if (res.returnVal > curVal) {
-            console.log(res.returnVal + " > " + curVal);
             curVal = res.returnVal;
             setValActions.push(new Action(node, 'value', node.__abValue, curVal));
             node.__abValue = curVal;
@@ -84,10 +83,8 @@ Tree.prototype.alphaBeta = function() {
           if (res.returnVal > a) {
             a = res.returnVal;
             setValActions.extend([
-              new Action(node, 'alpha', node.alpha, a),
-              new Action(node, 'beta', node.beta, b),
+              new Action(node, 'alpha', node.__alpha, a),
             ]);
-            node.__beta = b;
             node.__alpha = a;
           }
           if (res.childActionsList.length) {
@@ -113,7 +110,6 @@ Tree.prototype.alphaBeta = function() {
           res = abActions(child, bFac, a, b, !maxNode, actionLQ);
           setValActions = [];
           if (res.returnVal < curVal) {
-            console.log(res.returnVal + " < " + curVal);
             curVal = res.returnVal;
             setValActions.push(new Action(node, 'value', node.__abValue, curVal));
             node.__abValue = curVal;
@@ -121,10 +117,8 @@ Tree.prototype.alphaBeta = function() {
           if (res.returnVal < b) {
             b = res.returnVal;
             setValActions.extend([
-              new Action(node, 'alpha', node.alpha, a),
-              new Action(node, 'beta', node.beta, b),
+              new Action(node, 'beta', node.__beta, b),
             ]);
-            node,__alpha = a;
             node.__beta = b;
           }
           if (res.childActionsList.length) {
