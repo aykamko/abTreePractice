@@ -159,13 +159,21 @@ angular.module('abTreePractice', ['d3'])
             };
             updateD3SubTree(root, svgMargin, svgWidth - svgMargin, nodes, links);
           };
+          // updateD3Tree(scope.tree.rootNode, nodes, links);
 
-          scope.$watchCollection('tree', function(newValues, oldValues) {
+          scope.$watch(function() { return scope.tree.rootNode; }, function() {
             nodes = [];
             links = [];
             updateD3Tree(scope.tree.rootNode, nodes, links);
             restart();
           });
+
+          // scope.$watchCollection('tree', function(newValues, oldValues) {
+          //   nodes = [];
+          //   links = [];
+          //   updateD3Tree(scope.tree.rootNode, nodes, links);
+          //   restart();
+          // });
 
           // handles to link and node element groups
           var path = svg.append('svg:g').selectAll('path'),
@@ -228,8 +236,6 @@ angular.module('abTreePractice', ['d3'])
             path.select('path.link')
               .classed('pruned', function(d) { return d.pruned; })
               .classed('entered', function(d) {
-                console.log(this);
-                console.log(d);
                 return d.entered;
               });
 
@@ -290,7 +296,7 @@ angular.module('abTreePractice', ['d3'])
               .style('stroke', function(d) { return 'black'; })
               .on('mousedown', function(d) {
                 // select node
-                if (d.nodeType == NodeEnum.leafNode) { return; }
+                // if (d.nodeType == NodeEnum.leafNode) { return; }
                 mousedownNode = d;
                 d.oldVal = d.value;
                 restart();

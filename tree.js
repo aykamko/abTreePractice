@@ -17,6 +17,7 @@ function Tree(depth, branchingFactor, treeType, rootNode) {
   this.rootNode = rootNode;
 }
 Tree.prototype.alphaBeta = function() {
+  var thisTree = this;
   var generatePruneActionList = function(node, bFac) {
     actions = [];
     var pruneInner = function(node, bFac, actions) {
@@ -54,9 +55,10 @@ Tree.prototype.alphaBeta = function() {
     var k = 0,
         pruneRest = false,
         lastChildExitActions = [],
+        curVal = maxNode ? Number.NEGATIVE_INFINITY : Number.POSITIVE_INFINITY,
         child,
         childVal,
-        setValAction,
+        setValActions,
         res;
     if (maxNode) {
       for (; k < bFac; k++) {
@@ -65,15 +67,24 @@ Tree.prototype.alphaBeta = function() {
           lastChildExitActions.extend(generatePruneActionList(child, bFac));
         } else {
           res = abActions(child, bFac, a, b, !maxNode, actionLQ);
+          setValActions = [];
+          if (res.returnVal > curVal) {
+            console.log(res.returnVal + " > " + curVal);
+            curVal = res.returnVal;
+            setValActions.push(new Action(node, 'value', node.__abValue, curVal));
+            node.__abValue = curVal;
+          }
           if (res.returnVal > a) {
             a = res.returnVal;
-            setValAction = new Action(node, 'value', node.__abValue, a);
-            if (res.childActionsList.length) {
-              res.exitActions.push(setValAction);
-            } else {
-              res.enterActions.push(setValAction);
-            }
-            node.__abValue = a;
+            setValActions.extend([
+              new Action(thisTree, 'alpha', thisTree.alpha, a),
+              new Action(thisTree, 'beta', thisTree.beta, b),
+            ]);
+          }
+          if (res.childActionsList.length) {
+            res.exitActions.extend(setValActions);
+          } else {
+            res.enterActions.extend(setValActions);
           }
           res.enterActions.extend(lastChildExitActions);
           childActionsList.push(res.enterActions);
@@ -84,7 +95,6 @@ Tree.prototype.alphaBeta = function() {
           }
         }
       }
-      newVal = a;
     } else {
       for (; k < bFac; k++) {
         child = node.getKthChild(k);
@@ -92,15 +102,24 @@ Tree.prototype.alphaBeta = function() {
           lastChildExitActions.extend(generatePruneActionList(child, bFac));
         } else {
           res = abActions(child, bFac, a, b, !maxNode, actionLQ);
+          setValActions = [];
+          if (res.returnVal < curVal) {
+            console.log(res.returnVal + " < " + curVal);
+            curVal = res.returnVal;
+            setValActions.push(new Action(node, 'value', node.__abValue, curVal));
+            node.__abValue = curVal;
+          }
           if (res.returnVal < b) {
             b = res.returnVal;
-            setValAction = new Action(node, 'value', node.__abValue, b);
-            if (res.childActionsList.length) {
-              res.exitActions.push(setValAction);
-            } else {
-              res.enterActions.push(setValAction);
-            }
-            node.__abValue = b;
+            setValActions.extend([
+              new Action(thisTree, 'alpha', thisTree.alpha, a),
+              new Action(thisTree, 'beta', thisTree.beta, b),
+            ]);
+          }
+          if (res.childActionsList.length) {
+            res.exitActions.extend(setValActions);
+          } else {
+            res.enterActions.extend(setValActions);
           }
           res.enterActions.extend(lastChildExitActions);
           childActionsList.push(res.enterActions);
@@ -111,17 +130,15 @@ Tree.prototype.alphaBeta = function() {
           }
         }
       }
-      newVal = b;
     }
     childActionsList.push(lastChildExitActions);
     var exitActions = [
       new Action(node.parentLink, 'entered', true, false),
       new Action(node, 'entered', true, false),
-      new Action(node, 'value', node.value, newVal),
     ];
 
     return {
-      returnVal: newVal,
+      returnVal: curVal,
       enterActions: enterActions,
       childActionsList: childActionsList,
       exitActions: exitActions,
@@ -135,6 +152,10 @@ Tree.prototype.alphaBeta = function() {
     Number.POSITIVE_INFINITY,
     (this.treeType == treeNodeTypeEnum.maxNode)
   );
+  res.enterActions.extend([
+    new Action(thisTree, 'alpha', null, Number.NEGATIVE_INFINITY),
+    new Action(thisTree, 'beta', null, Number.POSITIVE_INFINITY),
+  ]);
   actionLQ.pushActionList(res.enterActions);
   actionLQ.extendActionList(res.childActionsList);
   actionLQ.pushActionList(res.exitActions);
