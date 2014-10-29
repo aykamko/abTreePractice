@@ -26,12 +26,7 @@ angular.module('d3', [])
   ]);
 
 angular.module('abTreePractice', ['d3'])
-  .constant('NodeEnum', {
-    maxNode: 'maxNode',
-    minNode: 'minNode',
-    randNode: 'randNode',
-    leafNode: 'leafNode',
-  })
+  .constant('NodeEnum', treeNodeTypeEnum)
   .controller('MainCtrl', ['NodeEnum', '$scope', function(NodeEnum, $scope) {
     $scope.oppositeNode = function(nodeType) {
       if (nodeType == NodeEnum.maxNode) {
@@ -82,12 +77,19 @@ angular.module('abTreePractice', ['d3'])
       $scope.generateRootNode();
     };
 
+    $scope.reRender = function() { return; }
+    $scope.alphaBeta = function() {
+      $scope.tree.alphaBeta();
+      $scope.reRender();
+    }
+
   }])
   .directive('abTree', ['NodeEnum', 'd3Service', function(NodeEnum, d3Service) {
     return {
       restrict: 'E',
       scope: {
         tree: '=',
+        reRender: '=',
       },
       link: function(scope, element, attrs) {
         var svgWidth = 1200,
@@ -128,7 +130,9 @@ angular.module('abTreePractice', ['d3'])
               curNode.y = yPos;
               nodes.push(curNode);
               if (curNode.parentNode) {
-                links.push({source: curNode.parentNode, target: curNode});
+                var link = {source: curNode.parentNode, target: curNode}
+                curNode.parentLink = link;
+                links.push(link);
               }
               for (var k = 0; k < bFac; k++) {
                 var kthChild = curNode.getKthChild(k);
@@ -175,15 +179,10 @@ angular.module('abTreePractice', ['d3'])
               return link.source.id + ',' + link.target.id
             });
 
-            // update existing links
-            path.select('path.link')
-              .classed('selected', function(d) { return d.selected; });
-
             // add new links
             var newLinks = path.enter().append('svg:g');
             newLinks.append('svg:path')
               .attr('class', 'link')
-              .classed('selected', function(d) { return d.selected; })
               .attr('d', function(d) {
                 return 'M' + d.source.x + ',' + d.source.y +
                        'L' + d.target.x + ',' + d.target.y;
@@ -195,7 +194,7 @@ angular.module('abTreePractice', ['d3'])
                        'L' + d.target.x + ',' + d.target.y;
               })
               .on('mousedown', function(d) {
-                d.selected = !d.selected;
+                d.pruned = !d.pruned;
                 restart();
               })
               .on('mouseover', function(d) {
@@ -211,6 +210,10 @@ angular.module('abTreePractice', ['d3'])
 
             // remove old links
             path.exit().remove();
+
+            // update existing links
+            path.select('path.link')
+              .classed('pruned', function(d) { return d.pruned; });
 
             // vertex (node) group
             // NB: the function arg is crucial here! nodes are known by id, not by index!
@@ -307,73 +310,9 @@ angular.module('abTreePractice', ['d3'])
               .attr('y', function(node) {
                 return node.y - 8;
               });
-
-              // .on('mouseover', function(d) {
-              //   if (!mousedownNode || d === mousedownNode) {
-              //     return;
-              //   }
-              //   // enlarge target node
-              //   d3.select(this).attr('transform', 'scale(1.1)');
-              // })
-              // .on('mouseout', function(d) {
-              //   if (!mousedownNode || d === mousedownNode) {
-              //     return;
-              //   }
-              //   // unenlarge target node
-              //   d3.select(this).attr('transform', '');
-              // })
-              // .on('mouseup', function(d) {
-              //   if (!mousedownNode) {
-              //     return;
-              //   }
-              //
-              //   // needed by FF
-              //   dragLine
-              //     .classed('hidden', true)
-              //     .style('marker-end', '');
-              //
-              //   // check for drag-to-self
-              //   mouseupNode = d;
-              //   if (mouseupNode === mousedownNode) {
-              //     resetMouseVars(); return;
-              //   }
-              //
-              //   // unenlarge target node
-              //   d3.select(this).attr('transform', '');
-              //
-              //   // add link to graph (update if exists)
-              //   // NB: links are strictly source < target; arrows separately specified by booleans
-              //   var source, target, direction;
-              //   if (mousedownNode.id < mouseupNode.id) {
-              //     source = mousedownNode;
-              //     target = mouseupNode;
-              //     direction = 'right';
-              //   } else {
-              //     source = mouseupNode;
-              //     target = mousedownNode;
-              //     direction = 'left';
-              //   }
-              //
-              //   var link;
-              //   link = links.filter(function(l) {
-              //     return (l.source === source && l.target === target);
-              //   })[0];
-              //
-              //   if (link) {
-              //     link[direction] = true;
-              //   } else {
-              //     link = {source: source, target: target, left: false, right: false};
-              //     link[direction] = true;
-              //     links.push(link);
-              //   }
-              //
-              //   // select new link
-              //   selectedLink = link;
-              //   selectedNode = null;
-              //   restart();
-              // });
-
           };
+          scope.reRender = restart;
+          window.restart = restart;
 
           // node value editing variables and functions
           var valCharIndex = null,
@@ -503,140 +442,6 @@ angular.module('abTreePractice', ['d3'])
             .on('keydown', windowKeyDown)
             .on('keyup', windowKeyUp)
           restart();
-
-          // function mousedown() {
-          //   // prevent I-bar on drag
-          //   //d3.event.preventDefault();
-          //
-          //   // because :active only works in WebKit?
-          //   svg.classed('active', true);
-          //
-          //   if (d3.event.ctrlKey || mousedownNode || mousedownLink) {
-          //     return;
-          //   }
-          //
-          //   // insert new node at point
-          //   var point = d3.mouse(this),
-          //       node = {id: ++lastNodeId, reflexive: false};
-          //   node.x = point[0];
-          //   node.y = point[1];
-          //   nodes.push(node);
-          //
-          //   restart();
-          // }
-          //
-          // function mousemove() {
-          //   if (!mousedownNode) {
-          //     return;
-          //   }
-          //
-          //   // update drag line
-          //   dragLine.attr('d', 'M' + mousedownNode.x + ',' + mousedownNode.y + 'L' + d3.mouse(this)[0] + ',' + d3.mouse(this)[1]);
-          //
-          //   restart();
-          // }
-          //
-          // function mouseup() {
-          //   if (mousedownNode) {
-          //     // hide drag line
-          //     dragLine
-          //       .classed('hidden', true)
-          //       .style('marker-end', '');
-          //   }
-          //
-          //   // because :active only works in WebKit?
-          //   svg.classed('active', false);
-          //
-          //   // clear mouse event vars
-          //   resetMouseVars();
-          // }
-          //
-
-          // only respond once per keydown
-          // var lastKeyDown = -1;
-          //
-          // function keydown() {
-          //   d3.event.preventDefault();
-          //
-          //   if (lastKeyDown !== -1) {
-          //     return;
-          //   }
-          //   lastKeyDown = d3.event.keyCode;
-          //
-          //   // ctrl
-          //   if (d3.event.keyCode === 17) {
-          //     vertex.call(force.drag);
-          //     svg.classed('ctrl', true);
-          //   }
-          //
-          //   if (!selectedNode && !selectedLink) {
-          //     return;
-          //   }
-          //   switch(d3.event.keyCode) {
-          //     case 8: // backspace
-          //     case 46: // delete
-          //       if (selectedNode) {
-          //         nodes.splice(nodes.indexOf(selectedNode), 1);
-          //         spliceLinksForNode(selectedNode);
-          //       } else if (selectedLink) {
-          //         links.splice(links.indexOf(selectedLink), 1);
-          //       }
-          //       selectedLink = null;
-          //       selectedNode = null;
-          //       restart();
-          //       break;
-          //     case 66: // B
-          //       if (selectedLink) {
-          //         // set link direction to both left and right
-          //         selectedLink.left = true;
-          //         selectedLink.right = true;
-          //       }
-          //       restart();
-          //       break;
-          //     case 76: // L
-          //       if (selectedLink) {
-          //         // set link direction to left only
-          //         selectedLink.left = true;
-          //         selectedLink.right = false;
-          //       }
-          //       restart();
-          //       break;
-          //     case 82: // R
-          //       if (selectedNode) {
-          //         // toggle node reflexivity
-          //         selectedNode.reflexive = !selectedNode.reflexive;
-          //       } else if (selectedLink) {
-          //         // set link direction to right only
-          //         selectedLink.left = false;
-          //         selectedLink.right = true;
-          //       }
-          //       restart();
-          //       break;
-          //   }
-          // }
-          //
-          // function keyup() {
-          //   lastKeyDown = -1;
-          //
-          //   // ctrl
-          //   if (d3.event.keyCode === 17) {
-          //     vertex
-          //       .on('mousedown.drag', null)
-          //       .on('touchstart.drag', null);
-          //     svg.classed('ctrl', false);
-          //   }
-          // }
-          //
-          // // app starts here
-          //   .on('mousemove', mousemove)
-          //   .on('mouseup', mouseup);
-          // d3.select(window)
-          //   .on('keydown', keydown)
-          //   .on('keyup', keyup);
-
-          // whenever the bound 'exp' expression changes, execute this
-          // scope.$watch('exp', function(newVal, oldVal) {
-          // });
         });
       },
     };

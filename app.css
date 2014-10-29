@@ -18,12 +18,12 @@ path.link.hover {
   stroke: #666666;
 }
 
-path.link.selected {
+path.link.pruned {
   stroke-dasharray: 10,10;
   stroke: #800000;
 }
 
-path.link.selected.hover {
+path.link.pruned.hover {
   stroke: #cd0000;
 }
 
@@ -34,12 +34,6 @@ path.mouselink {
   cursor: pointer;
 }
 
-/* path.mouselink:hover { */
-/*   stroke-width: 10px; */
-/*   stroke: #000; */
-/*   stroke-opacity: 0.3; */
-/*   cursor: pointer; */
-/* } */
 
 g.leaf path {
   fill: #FFF;
@@ -59,7 +53,8 @@ rect.cursor {
 }
 
 text {
-  font: 18px sans-serif;
+  font-family: 'Droid Sans Mono', sans-serif;
+  font-size: 18px;
   pointer-events: none;
 }
 
