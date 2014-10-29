@@ -302,9 +302,13 @@ angular.module('abTreePractice', ['d3'])
                 restart();
               });
 
-            // show node IDs
+            // show node IDs and alpha-beta
             g.append('svg:text')
-              .attr('class', 'value')
+              .attr('class', 'value');
+            g.append('svg:text')
+              .attr('class', 'alpha');
+            g.append('svg:text')
+              .attr('class', 'beta');
 
             // remove old nodes
             vertex.exit().remove();
@@ -315,10 +319,24 @@ angular.module('abTreePractice', ['d3'])
             // update existing node values
             vertex.select('text.value')
               .attr('x', function(d) { return d.x })
-              .attr('y', function(d) {
-                return d.y + 6;
-              })
+              .attr('y', function(d) { return d.y + 6; })
               .text(function(d) { return (d.value != null) ? d.value : ''; });
+
+            // update existing alpha-beta values
+            vertex.select('text.alpha')
+              .attr('x', function(d) { return d.x + 45 })
+              .attr('y', function(d) { return d.y - 4; })
+              .text(function(d) {
+                if (d.alpha == null || d.beta == null) { return '' };
+                return "α: " + d.alpha.toString().replace('Infinity', '∞');
+              });
+            vertex.select('text.beta')
+              .attr('x', function(d) { return d.x + 45 })
+              .attr('y', function(d) { return d.y + 16; })
+              .text(function(d) {
+                if (d.alpha == null || d.beta == null) { return '' };
+                return "β: " + d.beta.toString().replace('Infinity', '∞');
+              });
 
             // update existing cursor
             vertex.select('rect.cursor')

@@ -52,6 +52,13 @@ Tree.prototype.alphaBeta = function() {
       };
     }
 
+    enterActions.extend([
+      new Action(node, 'alpha', node.alpha, a),
+      new Action(node, 'beta', node.beta, b),
+    ]);
+    node.__alpha = a;
+    node.__beta = b;
+
     var k = 0,
         pruneRest = false,
         lastChildExitActions = [],
@@ -77,9 +84,11 @@ Tree.prototype.alphaBeta = function() {
           if (res.returnVal > a) {
             a = res.returnVal;
             setValActions.extend([
-              new Action(thisTree, 'alpha', thisTree.alpha, a),
-              new Action(thisTree, 'beta', thisTree.beta, b),
+              new Action(node, 'alpha', node.alpha, a),
+              new Action(node, 'beta', node.beta, b),
             ]);
+            node.__beta = b;
+            node.__alpha = a;
           }
           if (res.childActionsList.length) {
             res.exitActions.extend(setValActions);
@@ -112,9 +121,11 @@ Tree.prototype.alphaBeta = function() {
           if (res.returnVal < b) {
             b = res.returnVal;
             setValActions.extend([
-              new Action(thisTree, 'alpha', thisTree.alpha, a),
-              new Action(thisTree, 'beta', thisTree.beta, b),
+              new Action(node, 'alpha', node.alpha, a),
+              new Action(node, 'beta', node.beta, b),
             ]);
+            node,__alpha = a;
+            node.__beta = b;
           }
           if (res.childActionsList.length) {
             res.exitActions.extend(setValActions);
@@ -152,10 +163,6 @@ Tree.prototype.alphaBeta = function() {
     Number.POSITIVE_INFINITY,
     (this.treeType == treeNodeTypeEnum.maxNode)
   );
-  res.enterActions.extend([
-    new Action(thisTree, 'alpha', null, Number.NEGATIVE_INFINITY),
-    new Action(thisTree, 'beta', null, Number.POSITIVE_INFINITY),
-  ]);
   actionLQ.pushActionList(res.enterActions);
   actionLQ.extendActionList(res.childActionsList);
   actionLQ.pushActionList(res.exitActions);
