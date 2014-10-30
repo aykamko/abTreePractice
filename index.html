@@ -11,25 +11,40 @@
     <link rel="stylesheet" href="app.css">
   </head>
   <body ng-controller="MainCtrl">
-    <div class="btn-toolbar" role="toolbar">
-      <div class="btn-group">
-        <button type="button" class="btn btn-default disabled">Depth</button>
-        <button ng-click="incrDepth(-1)" type="button" class="btn btn-default">-</button>
-        <button ng-click="incrDepth(1)" type="button" class="btn btn-default">+</button>
+    <nav class="navbar navbar-inverse navbar-static-top nomargin" role="navigation">
+      <div class="container-fluid">
+        <div class="navbar-header">
+          <span class="navbar-brand">Alpha-Beta Pruning Practice</span>
+        </div>
       </div>
-      <div class="btn-group">
-        <button type="button" class="btn btn-default disabled">Branching Factor</button>
-        <button ng-click="incrBranchingFactor(-1)" type="button" class="btn btn-default">-</button>
-        <button ng-click="incrBranchingFactor(1)" type="button" class="btn btn-default">+</button>
+    </nav>
+    <div class="container-fluid nopadding">
+      <div class="col-md-9 col-lg-9 nopadding">
+        <ab-tree tree="tree" re-render="reRender"></ab-tree>
       </div>
-      <button ng-click="flipMax()" type="button" class="btn btn-default">Swap Min/Max</button>
-      <button ng-click="generateRootNode()" type="button" class="btn btn-default">Regenerate</button>
-      <div class="btn-group">
-        <button ng-click="alphaBeta()" type="button" class="btn btn-default">Run Alpha-Beta</button>
-        <button ng-click="stepForward()" type="button" class="btn btn-default">Forward</button>
-        <button ng-click="stepBackward()" type="button" class="btn btn-default">Backward</button>
+      <div class="col-md-3 col-lg-3">
+        <div class="btn-group-vertical">
+          <button type="button" class="btn btn-default disabled">Depth</button>
+          <button ng-click="incrDepth(-1)" type="button" class="btn btn-default">-</button>
+          <button ng-click="incrDepth(1)" type="button" class="btn btn-default">+</button>
+        </div>
+        <div class="btn-group-vertical">
+          <button type="button" class="btn btn-default disabled">Branching Factor</button>
+          <button ng-click="incrBranchingFactor(-1)" type="button" class="btn btn-default">-</button>
+          <button ng-click="incrBranchingFactor(1)" type="button" class="btn btn-default">+</button>
+        </div>
+        <div class="btn-group">
+          <button ng-click="alphaBeta()" type="button" class="btn btn-default">Run Alpha-Beta</button>
+          <button ng-click="stepForward()" type="button" class="btn btn-default">Forward</button>
+          <button ng-click="stepBackward()" type="button" class="btn btn-default">Backward</button>
+        </div>
+        <button ng-click="flipMax()" type="button" class="btn btn-default">Swap Min/Max</button>
+        <button ng-click="generateRootNode()" type="button" class="btn btn-default">Regenerate</button>
+        <button ng-click="resetTree()" type="button" class="btn btn-default">Reset Tree</button>
+        <button ng-click="showSolution()" type="button" class="btn btn-default">Show Solution</button>
+        <button ng-click="checkAnswer()" type="button" class="btn btn-default">Check Answer</button>
+        <span>{{correct}}</span>
       </div>
     </div>
-    <ab-tree tree="tree" re-render="reRender"></ab-tree>
   </body>
 </html>

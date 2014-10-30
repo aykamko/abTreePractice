@@ -40,26 +40,16 @@ angular.module('abTreePractice', ['d3'])
     $scope.maxVal = 20;
 
     $scope.generateRootNode = function(maxFirst) {
-      var generateSubTree = function(parentNode, nodeType, depth, bFac, maxDepth) {
-        var curNode = new TreeNode(depth, nodeType, bFac, parentNode);
-        if (depth == maxDepth) {
-          curNode.value = Math.round(Math.random() * (2 * $scope.maxVal)) -
-            $scope.maxVal;
-          curNode.nodeType = NodeEnum.leafNode;
-        } else {
-          for (var k = 0; k < bFac; k++) {
-            curNode.setKthChild(k,
-                generateSubTree(curNode, $scope.oppositeNode(nodeType),
-                  depth + 1, bFac, maxDepth));
-          }
-        }
-        return curNode;
-      }
-      $scope.tree.rootNode =
-        generateSubTree(null, $scope.tree.treeType, 1,
-            $scope.tree.branchingFactor, $scope.tree.depth);
+      $scope.tree.rootNode = Tree.generateABTreeRootNode(
+        $scope.tree.treeType,
+        $scope.tree.depth,
+        $scope.tree.branchingFactor,
+        -$scope.maxVal,
+        $scope.maxVal
+      );
+      $scope.actionLQ = null;
     };
-    $scope.tree = new Tree(3, 3, NodeEnum.maxNode, null);
+    $scope.tree = new Tree(null, NodeEnum.maxNode, 3, 3);
     $scope.generateRootNode();
 
     $scope.incrBranchingFactor = function(incr) {
@@ -77,10 +67,20 @@ angular.module('abTreePractice', ['d3'])
       $scope.generateRootNode();
     };
 
+    $scope.checkAnswer = function() {
+      if (!$scope.actionLQ) {
+        $scope.actionLQ = $scope.tree.alphaBeta();
+      }
+      $scope.correct = $scope.tree.checkAnswer();
+    }
+    $scope.correct = null;
+
     $scope.reRender = function() { return; }
     $scope.actionLQ = null;
     $scope.alphaBeta = function() {
-      window.a = $scope.actionLQ = $scope.tree.alphaBeta();
+      if (!$scope.actionLQ) {
+        $scope.actionLQ = $scope.tree.alphaBeta();
+      }
       $scope.actionLQ.inAction = true;
     }
     $scope.stepForward = function() {
@@ -96,8 +96,22 @@ angular.module('abTreePractice', ['d3'])
       }
     }
 
+    $scope.resetTree = function() {
+      $scope.tree.reset();
+      $scope.reRender();
+    }
+    $scope.showSolution = function() {
+      $scope.tree.setSolution();
+      $scope.reRender();
+    }
+
   }])
-  .directive('abTree', ['NodeEnum', 'd3Service', function(NodeEnum, d3Service) {
+  .directive('abTree',
+      ['NodeEnum',
+       'd3Service',
+       '$window',
+       '$document',
+       function(NodeEnum, d3Service, $window, $document) {
     return {
       restrict: 'E',
       scope: {
@@ -105,33 +119,43 @@ angular.module('abTreePractice', ['d3'])
         reRender: '=',
       },
       link: function(scope, element, attrs) {
-        var svgWidth = 1200,
-            svgHeight = 800,
-            svgMargin = 40,
-            nodeSideLength = 80,
-            triNodeHeight = Math.sqrt(Math.pow(nodeSideLength, 2) -
-                Math.pow((nodeSideLength/2), 2)),
-            triCenterFromBaseDist = Math.sqrt(
-                Math.pow((nodeSideLength / Math.sqrt(3)), 2) -
-                Math.pow((nodeSideLength / 2),2));
+        angular.element($document).ready(function () {
+          var svgMargin = 40,
+              nodeSideLength = 80,
+              triNodeHeight = Math.sqrt(Math.pow(nodeSideLength, 2) -
+                  Math.pow((nodeSideLength/2), 2)),
+              triCenterFromBaseDist = Math.sqrt(
+                  Math.pow((nodeSideLength / Math.sqrt(3)), 2) -
+                  Math.pow((nodeSideLength / 2),2));
 
         d3Service.d3().then(function(d3) {
-          var colors = d3.scale.category10();
+          var svgWidth = 0,
+              svgHeight = 0;
 
           var svg = d3.select(element[0])
-            .append('svg')
-            .attr('width', svgWidth)
-            .attr('height', svgHeight);
+            .append('svg');
+
+          scope.onResize = function() {
+            var navbarHeight = angular
+              .element($document[0].getElementsByClassName('navbar'))[0]
+              .offsetHeight;
+            svgWidth = $window.innerWidth;
+            svgHeight = $window.innerHeight - navbarHeight;
+            svg.attr('width', svgWidth)
+              .attr('height', svgHeight);
+          }
+          scope.onResize();
 
           var lastNodeId = -1;
-          var nodes = [],
-              links = [];
-          var updateD3Tree = function(root, nodes, links) {
-            var bFac = scope.tree.branchingFactor,
+          scope.renderD3Tree = function() {
+            scope.nodes = [];
+            scope.links = [];
+            var root = scope.tree.rootNode,
+                bFac = scope.tree.branchingFactor,
                 maxDepth = scope.tree.depth,
                 yOffset = (svgHeight - (2 * svgMargin)) / (maxDepth + 1);
 
-            var updateD3SubTree = function(curNode, xMin, xMax, nodes, links) {
+            var renderD3SubTree = function(curNode, xMin, xMax, nodes, links) {
               if (!curNode) { return; }
               var range = xMax - xMin;
               var newOffset = range / bFac;
@@ -142,14 +166,12 @@ angular.module('abTreePractice', ['d3'])
               curNode.x = xPos;
               curNode.y = yPos;
               nodes.push(curNode);
-              if (curNode.parentNode) {
-                var link = {source: curNode.parentNode, target: curNode}
-                curNode.parentLink = link;
-                links.push(link);
+              if (curNode.edgeToParent) {
+                links.push(curNode.edgeToParent);
               }
               for (var k = 0; k < bFac; k++) {
                 var kthChild = curNode.getKthChild(k);
-                updateD3SubTree(kthChild,
+                renderD3SubTree(kthChild,
                                 xMin + (newOffset * k),
                                 xMin + (newOffset * (k + 1)),
                                 nodes,
@@ -157,23 +179,22 @@ angular.module('abTreePractice', ['d3'])
                                );
               }
             };
-            updateD3SubTree(root, svgMargin, svgWidth - svgMargin, nodes, links);
+            renderD3SubTree(root, svgMargin, svgWidth - svgMargin,
+                scope.nodes, scope.links);
+            scope.reRender();
           };
-          // updateD3Tree(scope.tree.rootNode, nodes, links);
 
-          scope.$watch(function() { return scope.tree.rootNode; }, function() {
-            nodes = [];
-            links = [];
-            updateD3Tree(scope.tree.rootNode, nodes, links);
-            restart();
+          scope.$watch(function() { return scope.tree.rootNode; },
+              scope.renderD3Tree);
+
+          angular.element($window).bind('resize', function() {
+            scope.onResize();
+            clearTimeout(scope.resizeTimeout);
+            scope.resizeTimeout = setTimeout(function() {
+              scope.renderD3Tree();
+              scope.reRender();
+            }, 500);
           });
-
-          // scope.$watchCollection('tree', function(newValues, oldValues) {
-          //   nodes = [];
-          //   links = [];
-          //   updateD3Tree(scope.tree.rootNode, nodes, links);
-          //   restart();
-          // });
 
           // handles to link and node element groups
           var path = svg.append('svg:g').selectAll('path'),
@@ -181,42 +202,24 @@ angular.module('abTreePractice', ['d3'])
 
           // mouse event vars
           var selectedNode = null,
-              mousedownNode = null,
-              mouseupNode = null;
-
-          var resetMouseVars = function() {
-            mousedownNode = null;
-            mouseupNode = null;
-            mousedownLink = null;
-          };
-
-          // line displayed when dragging new nodes
-          var dragVertex = svg.append('svg:g')
+              mousedownNode = null;
 
           // update graph (called when needed)
-          var restart = function() {
+          scope.reRender = function() {
             // path (link) group
-            path = path.data(links, function(link) {
+            path = path.data(scope.links, function(link) {
               return link.source.id + ',' + link.target.id
             });
 
             // add new links
             var newLinks = path.enter().append('svg:g');
             newLinks.append('svg:path')
-              .attr('class', 'link')
-              .attr('d', function(d) {
-                return 'M' + d.source.x + ',' + d.source.y +
-                       'L' + d.target.x + ',' + d.target.y;
-              })
+              .attr('class', 'link');
             newLinks.append('svg:path')
               .attr('class', 'mouselink')
-              .attr('d', function(d) {
-                return 'M' + d.source.x + ',' + d.source.y +
-                       'L' + d.target.x + ',' + d.target.y;
-              })
               .on('mousedown', function(d) {
                 d.pruned = !d.pruned;
-                restart();
+                scope.reRender();
               })
               .on('mouseover', function(d) {
                 // color target link
@@ -234,23 +237,31 @@ angular.module('abTreePractice', ['d3'])
 
             // update existing links
             path.select('path.link')
+              .attr('d', function(d) {
+                return 'M' + d.source.x + ',' + d.source.y +
+                       'L' + d.target.x + ',' + d.target.y;
+              })
               .classed('pruned', function(d) { return d.pruned; })
               .classed('entered', function(d) {
                 return d.entered;
               });
+            path.select('path.mouselink')
+              .attr('d', function(d) {
+                return 'M' + d.source.x + ',' + d.source.y +
+                       'L' + d.target.x + ',' + d.target.y;
+              });
 
             // vertex (node) group
-            // NB: the function arg is crucial here! nodes are known by id, not by index!
-            vertex = vertex.data(nodes, function(d) { return d.id; });
+            vertex = vertex.data(scope.nodes, function(d) { return d.id; });
 
             // add new nodes
-            var g = vertex.enter().append('svg:g')
+            var newNodes = vertex.enter().append('svg:g')
               .classed('node', true)
               .classed('leaf', function(d) {
                 return (d.nodeType == NodeEnum.leafNode);
               });
-
-            g.append('svg:path')
+            newNodes.append('svg:path')
+              .classed('nodepath', true)
               .each(function(d) {
                 d.nodeEle = d3.select(this.parentNode);
               })
@@ -273,6 +284,26 @@ angular.module('abTreePractice', ['d3'])
                        'L' + (s/2) + "," + -h +
                        'L' + 0 + "," + 0;
               })
+              .on('mousedown', function(d) {
+                // select node
+                mousedownNode = d;
+                d.oldVal = d.value;
+                scope.reRender();
+              });
+            // show node IDs and alpha-beta
+            newNodes.append('svg:text')
+              .attr('class', 'value');
+            newNodes.append('svg:text')
+              .attr('class', 'alpha');
+            newNodes.append('svg:text')
+              .attr('class', 'beta');
+
+            // remove old nodes
+            vertex.exit().remove();
+
+            // update existing nodes
+            vertex.classed('entered', function(d) { return d.entered; });
+            vertex.select('path.nodepath')
               .attr('transform', function(d) {
                 var halfSide = nodeSideLength / 2;
                 var t = '', r = '';
@@ -292,36 +323,12 @@ angular.module('abTreePractice', ['d3'])
                   r = ' rotate(180)';
                 }
                 return t + r;
-              })
-              .style('stroke', function(d) { return 'black'; })
-              .on('mousedown', function(d) {
-                // select node
-                // if (d.nodeType == NodeEnum.leafNode) { return; }
-                mousedownNode = d;
-                d.oldVal = d.value;
-                restart();
               });
-
-            // show node IDs and alpha-beta
-            g.append('svg:text')
-              .attr('class', 'value');
-            g.append('svg:text')
-              .attr('class', 'alpha');
-            g.append('svg:text')
-              .attr('class', 'beta');
-
-            // remove old nodes
-            vertex.exit().remove();
-
-            vertex
-              .classed('entered', function(d) { return d.entered; });
-
             // update existing node values
             vertex.select('text.value')
               .attr('x', function(d) { return d.x })
               .attr('y', function(d) { return d.y + 6; })
               .text(function(d) { return (d.value != null) ? d.value : ''; });
-
             // update existing alpha-beta values
             vertex.select('text.alpha')
               .attr('x', function(d) { return d.x + 45 })
@@ -337,7 +344,6 @@ angular.module('abTreePractice', ['d3'])
                 if (d.alpha == null || d.beta == null) { return '' };
                 return "β: " + d.beta.toString().replace('Infinity', '∞');
               });
-
             // update existing cursor
             vertex.select('rect.cursor')
               .attr('x', function(node) {
@@ -345,18 +351,19 @@ angular.module('abTreePractice', ['d3'])
                 var valStr = (nodeVal == null) ? '' : nodeVal.toString();
 
                 var valSVG = d3.select(this.parentNode).select('text').node();
-                var valSVGLength = valSVG
-                  ? valSVG.getComputedTextLength()
-                    : 0;
+                var valSVGLength = valSVG ? valSVG.getComputedTextLength() : 0;
 
-                var xAdjust = valSVGLength / (valStr.length + Number.MIN_VALUE);
-                return node.x - (valSVGLength / 2) + (xAdjust * valCharIndex) - 0.5;
+                var subStrLength = computeTextWidth(
+                    valStr.substring(0, valCharIndex),
+                    "18px Helvetica Neue"
+                );
+
+                return node.x + (subStrLength - (valSVGLength / 2));
               })
               .attr('y', function(node) {
-                return node.y - 8;
+                return node.y - 9;
               });
           };
-          scope.reRender = restart;
 
           // node value editing variables and functions
           var valCharIndex = null,
@@ -428,7 +435,7 @@ angular.module('abTreePractice', ['d3'])
                 .attr('fill', 'frozen');
               */
 
-              restart();
+              scope.reRender();
             }
           }
 
@@ -471,10 +478,9 @@ angular.module('abTreePractice', ['d3'])
               } else if (lastKeyDown == 27) {  // escape
                 discardNodeValueChanges();
               }
-              restart();
+              scope.reRender();
               return;
             }
-
           }
 
           function windowKeyUp() {
@@ -485,8 +491,8 @@ angular.module('abTreePractice', ['d3'])
           d3.select(window)
             .on('keydown', windowKeyDown)
             .on('keyup', windowKeyUp)
-          restart();
         });
+       });
       },
     };
   }]);

@@ -1,3 +1,8 @@
+html, body {
+  background: #EEE;
+  overflow: hidden;
+}
+
 svg {
   background-color: #EEE;
   cursor: default;
@@ -6,6 +11,14 @@ svg {
   -ms-user-select: none;
   -o-user-select: none;
   user-select: none;
+}
+
+.nopadding {
+   padding: 0 !important;
+}
+
+.nomargin {
+   margin: 0 !important;
 }
 
 path.link {
@@ -43,6 +56,7 @@ path.mouselink {
 g.node path {
   cursor: pointer;
   fill: #FFF;
+  stroke: #000;
 }
 g.node path:hover {
   fill: #EEE;
@@ -50,12 +64,12 @@ g.node path:hover {
 g.node.entered path {
   fill: #EEFFEE;
 }
-g.node.entered path:hover {
-  fill: #EEFFEE;
-}
 
 g.node.leaf path {
   fill: #FFF;
+}
+g.node.leaf path:hover {
+  fill: #EEE;
 }
 g.node.entered.leaf path {
   fill: #EEEEFF;
@@ -66,7 +80,7 @@ rect.cursor {
 }
 
 text {
-  font-family: 'Droid Sans Mono', sans-serif;
+  font-family: 'Helvetica Neue', sans-serif;
   font-size: 18px;
   pointer-events: none;
 }
@@ -74,9 +88,4 @@ text {
 text.value {
   text-anchor: middle;
   font-weight: bold;
-}
-
-text.alpha,
-text.beta {
-  font-family: "Helvetica Neue", sans-serif;
 }

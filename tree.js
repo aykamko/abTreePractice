@@ -1,3 +1,12 @@
+function computeTextWidth(text, font) {
+  // re-use canvas object for better performance
+  var canvas = computeTextWidth.canvas || (computeTextWidth.canvas = document.createElement("canvas"));
+  var context = canvas.getContext("2d");
+  context.font = font;
+  var metrics = context.measureText(text);
+  return metrics.width;
+};
+
 Array.prototype.extend = function(array) {
   Array.prototype.push.apply(this, array);
 }
@@ -7,14 +16,44 @@ var treeNodeTypeEnum = {
   minNode: 'minNode',
   randNode: 'randNode',
   leafNode: 'leafNode',
+
+  opposite: function(t) {
+    if (t == this.maxNode) {
+      return this.minNode;
+    } else if (t == this.minNode) {
+      return this.maxNode;
+    }
+    return t;
+  },
 }
 
-
-function Tree(depth, branchingFactor, treeType, rootNode) {
+function Tree(rootNode, treeType, depth, branchingFactor) {
+  this.rootNode = rootNode;
+  this.treeType = treeType;
   this.depth = depth;
   this.branchingFactor = branchingFactor;
-  this.treeType = treeType;
-  this.rootNode = rootNode;
+}
+Tree.generateABTreeRootNode = function(treeType, maxDepth, branchingFactor, minVal, maxVal) {
+  function generateSubTree(parentNode, nodeType, depth, bFac) {
+    var curNode = new TreeNode(nodeType, parentNode, depth, bFac);
+    if (depth == maxDepth) {
+      curNode.nodeType = treeNodeTypeEnum.leafNode;
+      curNode.value = Math.round(Math.random() * (maxVal - minVal)) - maxVal;
+    } else {
+      for (var k = 0; k < bFac; k++) {
+        curNode.setKthChild(k,
+          generateSubTree(
+            curNode,
+            treeNodeTypeEnum.opposite(nodeType),
+            depth + 1,
+            bFac
+          )
+        );
+      }
+    }
+    return curNode;
+  }
+  return generateSubTree(null, treeType, 1, branchingFactor);
 }
 Tree.prototype.alphaBeta = function() {
   var thisTree = this;
@@ -23,8 +62,9 @@ Tree.prototype.alphaBeta = function() {
     var pruneInner = function(node, bFac, actions) {
       if (!node) { return; }
 
-      if (node.parentLink) {
-        actions.push(new Action(node.parentLink, 'pruned', false, true));
+      if (node.edgeToParent) {
+        actions.push(new Action(node.edgeToParent, 'pruned', false, true));
+        node.edgeToParent.__pruned = true;
       }
       var child;
       for (var k = 0; k < bFac; k++) {
@@ -38,7 +78,7 @@ Tree.prototype.alphaBeta = function() {
 
   var abActions = function(node, bFac, a, b, maxNode, actionLQ) {
     var enterActions = [
-      new Action(node.parentLink, 'entered', false, true),
+      new Action(node.edgeToParent, 'entered', false, true),
       new Action(node, 'entered', false, true),
     ];
     var childActionsList = [];
@@ -48,7 +88,7 @@ Tree.prototype.alphaBeta = function() {
         returnVal: node.value,
         enterActions: enterActions,
         childActionsList: childActionsList,
-        exitActions: [new Action(node.parentLink, 'entered', true, false)],
+        exitActions: [new Action(node.edgeToParent, 'entered', true, false)],
       };
     }
 
@@ -77,8 +117,8 @@ Tree.prototype.alphaBeta = function() {
           setValActions = [];
           if (res.returnVal > curVal) {
             curVal = res.returnVal;
-            setValActions.push(new Action(node, 'value', node.__abValue, curVal));
-            node.__abValue = curVal;
+            setValActions.push(new Action(node, 'value', node.__value, curVal));
+            node.__value = curVal;
           }
           if (res.returnVal > a) {
             a = res.returnVal;
@@ -111,8 +151,8 @@ Tree.prototype.alphaBeta = function() {
           setValActions = [];
           if (res.returnVal < curVal) {
             curVal = res.returnVal;
-            setValActions.push(new Action(node, 'value', node.__abValue, curVal));
-            node.__abValue = curVal;
+            setValActions.push(new Action(node, 'value', node.__value, curVal));
+            node.__value = curVal;
           }
           if (res.returnVal < b) {
             b = res.returnVal;
@@ -138,7 +178,7 @@ Tree.prototype.alphaBeta = function() {
     }
     childActionsList.push(lastChildExitActions);
     var exitActions = [
-      new Action(node.parentLink, 'entered', true, false),
+      new Action(node.edgeToParent, 'entered', true, false),
       new Action(node, 'entered', true, false),
     ];
 
@@ -162,14 +202,65 @@ Tree.prototype.alphaBeta = function() {
   actionLQ.pushActionList(res.exitActions);
   return actionLQ;
 }
+Tree.prototype.checkAnswer = function() {
+  function checkSubTree(node) {
+    if (node.nodeType == treeNodeTypeEnum.leafNode) { return true; }
+    if (node.value != node.__value) {
+      return false;
+    }
+    if (node.edgeToParent &&
+        node.edgeToParent.__pruned &&
+        node.edgeToParent.__pruned != node.edgeToParent.pruned) {
+      return false;
+    }
+    var res = true;
+    for (var k = 0; k < node.childNum; k++) {
+      res = res && checkSubTree(node.getKthChild(k));
+    }
+    return res;
+  }
+  return checkSubTree(this.rootNode);
+}
+Tree.prototype.reset = function() {
+  function resetSubTree(node) {
+    if (node.edgeToParent) {
+      node.edgeToParent.entered = false;
+      node.edgeToParent.pruned = false;
+    }
+    node.entered = false;
+    if (node.nodeType == treeNodeTypeEnum.leafNode) { return; }
+    node.value = null;
+    node.alpha = null;
+    node.beta = null;
+    for (var k = 0; k < node.childNum; k++) {
+      resetSubTree(node.getKthChild(k));
+    }
+  }
+  resetSubTree(this.rootNode);
+}
+Tree.prototype.setSolution = function() {
+  this.alphaBeta();
+  function setSolutionForSubTree(node) {
+    if (node.edgeToParent) {
+      node.edgeToParent.pruned = node.edgeToParent.__pruned;
+    }
+    if (node.nodeType == treeNodeTypeEnum.leafNode) { return; }
+    node.value = node.__value;
+    node.alpha = node.__alpha;
+    node.beta = node.__beta;
+    for (var k = 0; k < node.childNum; k++) {
+      setSolutionForSubTree(node.getKthChild(k));
+    }
+  }
+  setSolutionForSubTree(this.rootNode);
+}
 
 
-function TreeNode(depth, nodeType, childNum, parentNode) {
+function TreeNode(nodeType, parentNode, depth, childNum) {
   this.nodeType = nodeType;
-  this.parentNode = parentNode;
-  this.edgeToParent = null;
-  this.childNum = childNum;
+  this.setParent(parentNode);
   this.depth = depth;
+  this.childNum = childNum;
   this.children = new Array(childNum);
   this.value = null;
 }
@@ -185,7 +276,18 @@ TreeNode.prototype.getKthChild = function(k) {
   }
   return this.children[k];
 }
+TreeNode.prototype.setParent = function(parentNode) {
+  if (parentNode) {
+    this.edgeToParent = new TreeEdge(parentNode, this);
+    this.parentNode = parentNode;
+  }
+}
 
+function TreeEdge(source, target) {
+  this.source = source;
+  this.target = target;
+  this.pruned = false;
+}
 
 function Action(object, key, oldVal, newVal) {
   this.object = object;
