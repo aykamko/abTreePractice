@@ -1,3 +1,16 @@
+function computeTextWidth(text, font) {
+  // re-use canvas object for better performance
+  var canvas = computeTextWidth.canvas || (computeTextWidth.canvas = document.createElement("canvas"));
+  var context = canvas.getContext("2d");
+  context.font = font;
+  var metrics = context.measureText(text);
+  return metrics.width;
+};
+
+Array.prototype.extend = function(array) {
+  Array.prototype.push.apply(this, array);
+}
+
 angular.module('d3', [])
   .factory('d3Service', ['$document', '$q', '$rootScope',
     function($document, $q, $rootScope) {
@@ -25,17 +38,410 @@ angular.module('d3', [])
     }
   ]);
 
-angular.module('abTreePractice', ['d3'])
-  .constant('NodeEnum', treeNodeTypeEnum)
-  .controller('MainCtrl', ['NodeEnum', '$scope', function(NodeEnum, $scope) {
-    $scope.oppositeNode = function(nodeType) {
-      if (nodeType == NodeEnum.maxNode) {
-        return NodeEnum.minNode;
-      } else if (nodeType == NodeEnum.minNode) {
-        return NodeEnum.maxNode;
-      }
-      return nodeType;
+angular.module('Enums', [])
+  .factory('EnumService', [function() {
+    var TreeNodeTypeEnum = {
+      maxNode: 'maxNode',
+      minNode: 'minNode',
+      randNode: 'randNode',
+      leafNode: 'leafNode',
+
+      opposite: function(t) {
+        if (t == this.maxNode) {
+          return this.minNode;
+        } else if (t == this.minNode) {
+          return this.maxNode;
+        }
+        return t;
+      },
     };
+
+    return {
+      TreeNodeTypeEnum: TreeNodeTypeEnum,
+    };
+
+  }]);
+
+angular.module('ActionListQueue', [])
+  .factory('ActionLQService', [function() {
+
+    function Action(object, key, oldVal, newVal) {
+      this.object = object;
+      this.key = key;
+      this.oldVal = oldVal;
+      this.newVal = newVal;
+    }
+    Action.prototype.apply = function() {
+      if (!this.object) { return; }
+      this.object[this.key] = this.newVal;
+    }
+    Action.prototype.reverse = function() {
+      if (!this.object) { return; }
+      this.object[this.key] = this.oldVal;
+    }
+
+    function ActionListQueue() {
+      this.inAction = false;
+      this.lastAction = -1;
+      this.actionListQueue = []
+      this.length = 0;
+    }
+    ActionListQueue.prototype.pushActionList = function(actionList) {
+      if (this.inAction) { return false; }
+      this.actionListQueue.push(actionList);
+      this.length += 1;
+      return true;
+    }
+    ActionListQueue.prototype.extendActionList = function(actionLists) {
+      if (this.inAction) { return false; }
+      this.actionListQueue.extend(actionLists);
+      this.length += actionLists.length;
+      return true;
+    }
+    ActionListQueue.prototype.stepForward = function() {
+      if (!this.inAction ||
+          this.lastAction == (this.actionListQueue.length - 1)) {
+        return false;
+      }
+      this.lastAction += 1;
+      var actionList = this.actionListQueue[this.lastAction];
+      var a;
+      for (var i = 0; i < actionList.length; i++) {
+        a = actionList[i];
+        a.apply();
+      }
+      return true;
+    }
+    ActionListQueue.prototype.stepBackward = function() {
+      if (!this.inAction || this.lastAction == -1) {
+        return false;
+      }
+      var actionList = this.actionListQueue[this.lastAction];
+      var a;
+      for (var i = 0; i < actionList.length; i++) {
+        a = actionList[i];
+        a.reverse();
+      }
+      this.lastAction -= 1;
+      return true;
+    }
+    ActionListQueue.prototype.goToEnd = function() {
+      if (!this.inAction) { return; }
+      while (this.stepForward()) {}
+    }
+    ActionListQueue.prototype.goToBeginning = function() {
+      if (!this.inAction) { return; }
+      while (this.stepBackward()) {}
+    }
+    ActionListQueue.prototype.play = function() {
+      if (!this.inAction) { return; }
+      var end = false;
+      var time = 300;
+      var step = function(aq) {
+        var res = aq.stepForward();
+        if (res) {
+          setTimeout(step.bind(aq));
+        }
+      };
+      step(this);
+    }
+    ActionListQueue.prototype.pause = function() {
+      clearTimeout(this.playTimeout);
+    }
+
+    return {
+      Action: Action,
+      ActionListQueue: ActionListQueue,
+    }
+
+  }]);
+
+angular.module('Tree', ['Enums', 'ActionListQueue'])
+  .factory('TreeService', ['EnumService', 'ActionLQService', function(EnumService, ActionLQService) {
+    var TreeNodeTypeEnum = EnumService.TreeNodeTypeEnum;
+    var Action = ActionLQService.Action;
+    var ActionListQueue = ActionLQService.ActionListQueue;
+
+    function Tree(rootNode, treeType, depth, branchingFactor) {
+      this.rootNode = rootNode;
+      this.treeType = treeType;
+      this.depth = depth;
+      this.branchingFactor = branchingFactor;
+      this.mutable = true;
+    }
+    Tree.generateABTreeRootNode = function(treeType, maxDepth, branchingFactor, minVal, maxVal) {
+      function generateSubTree(parentNode, nodeType, depth, bFac) {
+        var curNode = new TreeNode(nodeType, parentNode, depth, bFac);
+        if (depth == maxDepth) {
+          curNode.nodeType = TreeNodeTypeEnum.leafNode;
+          curNode.value = Math.round(Math.random() * (maxVal - minVal)) - maxVal;
+        } else {
+          for (var k = 0; k < bFac; k++) {
+            curNode.setKthChild(k,
+              generateSubTree(
+                curNode,
+                TreeNodeTypeEnum.opposite(nodeType),
+                depth + 1,
+                bFac
+              )
+            );
+          }
+        }
+        return curNode;
+      }
+      return generateSubTree(null, treeType, 1, branchingFactor);
+    }
+    Tree.prototype.alphaBeta = function() {
+      var thisTree = this;
+      var generatePruneActionList = function(node, bFac) {
+        actions = [];
+        var pruneInner = function(node, bFac, actions) {
+          if (!node) { return; }
+
+          if (node.edgeToParent) {
+            actions.push(new Action(node.edgeToParent, 'pruned', false, true));
+            node.edgeToParent.__pruned = true;
+          }
+          var child;
+          for (var k = 0; k < bFac; k++) {
+            child = node.getKthChild(k);
+            pruneInner(child, bFac, actions);
+          }
+        }
+        pruneInner(node, bFac, actions);
+        return actions;
+      }
+
+      var abActions = function(node, bFac, a, b, maxNode, actionLQ) {
+        var enterActions = [
+          new Action(node.edgeToParent, 'entered', false, true),
+          new Action(node, 'entered', false, true),
+        ];
+        var childActionsList = [];
+
+        if (node.nodeType == TreeNodeTypeEnum.leafNode) {
+          return {
+            returnVal: node.value,
+            enterActions: enterActions,
+            childActionsList: childActionsList,
+            exitActions: [new Action(node.edgeToParent, 'entered', true, false)],
+          };
+        }
+
+        enterActions.extend([
+          new Action(node, 'alpha', node.alpha, a),
+          new Action(node, 'beta', node.beta, b),
+        ]);
+        node.__alpha = a;
+        node.__beta = b;
+
+        var k = 0,
+            pruneRest = false,
+            lastChildExitActions = [],
+            curVal = maxNode ? Number.NEGATIVE_INFINITY : Number.POSITIVE_INFINITY,
+            child,
+            childVal,
+            setValActions,
+            res;
+        if (maxNode) {
+          for (; k < bFac; k++) {
+            child = node.getKthChild(k);
+            if (pruneRest) {
+              lastChildExitActions.extend(generatePruneActionList(child, bFac));
+            } else {
+              res = abActions(child, bFac, a, b, !maxNode, actionLQ);
+              setValActions = [];
+              if (res.returnVal > curVal) {
+                curVal = res.returnVal;
+                setValActions.push(new Action(node, 'value', node.__value, curVal));
+                node.__value = curVal;
+              }
+              if (res.returnVal > a) {
+                a = res.returnVal;
+                setValActions.extend([
+                  new Action(node, 'alpha', node.__alpha, a),
+                ]);
+                node.__alpha = a;
+              }
+              if (res.childActionsList.length) {
+                res.exitActions.extend(setValActions);
+              } else {
+                res.enterActions.extend(setValActions);
+              }
+              res.enterActions.extend(lastChildExitActions);
+              childActionsList.push(res.enterActions);
+              childActionsList.extend(res.childActionsList);
+              lastChildExitActions = res.exitActions;
+              if (b <= a) {
+                pruneRest = true;
+              }
+            }
+          }
+        } else {
+          for (; k < bFac; k++) {
+            child = node.getKthChild(k);
+            if (pruneRest) {
+              lastChildExitActions.extend(generatePruneActionList(child, bFac));
+            } else {
+              res = abActions(child, bFac, a, b, !maxNode, actionLQ);
+              setValActions = [];
+              if (res.returnVal < curVal) {
+                curVal = res.returnVal;
+                setValActions.push(new Action(node, 'value', node.__value, curVal));
+                node.__value = curVal;
+              }
+              if (res.returnVal < b) {
+                b = res.returnVal;
+                setValActions.extend([
+                  new Action(node, 'beta', node.__beta, b),
+                ]);
+                node.__beta = b;
+              }
+              if (res.childActionsList.length) {
+                res.exitActions.extend(setValActions);
+              } else {
+                res.enterActions.extend(setValActions);
+              }
+              res.enterActions.extend(lastChildExitActions);
+              childActionsList.push(res.enterActions);
+              childActionsList.extend(res.childActionsList);
+              lastChildExitActions = res.exitActions;
+              if (b <= a) {
+                pruneRest = true;
+              }
+            }
+          }
+        }
+        childActionsList.push(lastChildExitActions);
+        var exitActions = [
+          new Action(node.edgeToParent, 'entered', true, false),
+          new Action(node, 'entered', true, false),
+        ];
+
+        return {
+          returnVal: curVal,
+          enterActions: enterActions,
+          childActionsList: childActionsList,
+          exitActions: exitActions,
+        };
+      }
+      var actionLQ = new ActionListQueue();
+      var res = abActions(
+        this.rootNode,
+        this.branchingFactor,
+        Number.NEGATIVE_INFINITY,
+        Number.POSITIVE_INFINITY,
+        (this.treeType == TreeNodeTypeEnum.maxNode)
+      );
+      actionLQ.pushActionList(res.enterActions);
+      actionLQ.extendActionList(res.childActionsList);
+      actionLQ.pushActionList(res.exitActions);
+      return actionLQ;
+    }
+    Tree.prototype.checkAnswer = function() {
+      function checkSubTree(node) {
+        if (node.nodeType == TreeNodeTypeEnum.leafNode) { return true; }
+        if (node.value != node.__value) {
+          return false;
+        }
+        if (node.edgeToParent &&
+            node.edgeToParent.__pruned &&
+            node.edgeToParent.__pruned != node.edgeToParent.pruned) {
+          return false;
+        }
+        var res = true;
+        for (var k = 0; k < node.childNum; k++) {
+          res = res && checkSubTree(node.getKthChild(k));
+        }
+        return res;
+      }
+      return checkSubTree(this.rootNode);
+    }
+    Tree.prototype.reset = function() {
+      function resetSubTree(node) {
+        if (node.edgeToParent) {
+          node.edgeToParent.entered = false;
+          node.edgeToParent.pruned = false;
+        }
+        node.entered = false;
+        if (node.nodeType == TreeNodeTypeEnum.leafNode) { return; }
+        node.value = null;
+        node.alpha = null;
+        node.beta = null;
+        for (var k = 0; k < node.childNum; k++) {
+          resetSubTree(node.getKthChild(k));
+        }
+      }
+      resetSubTree(this.rootNode);
+    }
+    Tree.prototype.setSolution = function() {
+      this.alphaBeta();
+      function setSolutionForSubTree(node) {
+        if (node.edgeToParent) {
+          node.edgeToParent.pruned = node.edgeToParent.__pruned;
+        }
+        if (node.nodeType == TreeNodeTypeEnum.leafNode) { return; }
+        node.value = node.__value;
+        node.alpha = node.__alpha;
+        node.beta = node.__beta;
+        for (var k = 0; k < node.childNum; k++) {
+          setSolutionForSubTree(node.getKthChild(k));
+        }
+      }
+      setSolutionForSubTree(this.rootNode);
+    }
+
+
+    function TreeNode(nodeType, parentNode, depth, childNum) {
+      this.nodeType = nodeType;
+      this.setParent(parentNode);
+      this.depth = depth;
+      this.childNum = childNum;
+      this.children = new Array(childNum);
+      this.value = null;
+    }
+    TreeNode.prototype.setKthChild = function(k, child) {
+      if (k >= this.childNum) {
+        throw "Error: node only holds " + k + " children."
+      }
+      this.children[k] = child;
+    }
+    TreeNode.prototype.getKthChild = function(k) {
+      if (k >= this.childNum) {
+        throw "Error: node only holds " + k + " children."
+      }
+      return this.children[k];
+    }
+    TreeNode.prototype.setParent = function(parentNode) {
+      if (parentNode) {
+        this.edgeToParent = new TreeEdge(parentNode, this);
+        this.parentNode = parentNode;
+      }
+    }
+
+    function TreeEdge(source, target) {
+      this.source = source;
+      this.target = target;
+      this.pruned = false;
+    }
+
+    return {
+      Tree: Tree,
+      TreeNode: TreeNode,
+      TreeEdge: TreeEdge,
+    }
+
+  }]);
+
+angular.module('abTreePractice', ['d3', 'Enums', 'Tree'])
+  .controller('MainCtrl', [
+      'EnumService',
+      'TreeService',
+      '$scope',
+      '$timeout',
+      function(EnumService, TreeService, $scope, $timeout) {
+    var TreeNodeTypeEnum = EnumService.TreeNodeTypeEnum;
+    var Tree = TreeService.Tree;
 
     $scope.maxVal = 20;
 
@@ -49,7 +455,7 @@ angular.module('abTreePractice', ['d3'])
       );
       $scope.actionLQ = null;
     };
-    $scope.tree = new Tree(null, NodeEnum.maxNode, 3, 3);
+    $scope.tree = new Tree(null, TreeNodeTypeEnum.maxNode, 3, 3);
     $scope.generateRootNode();
 
     $scope.incrBranchingFactor = function(incr) {
@@ -63,7 +469,7 @@ angular.module('abTreePractice', ['d3'])
       $scope.generateRootNode();
     };
     $scope.flipMax = function() {
-      $scope.tree.treeType = $scope.oppositeNode($scope.tree.treeType);
+      $scope.tree.treeType = TreeNodeTypeEnum.opposite($scope.tree.treeType);
       $scope.generateRootNode();
     };
 
@@ -75,27 +481,6 @@ angular.module('abTreePractice', ['d3'])
     }
     $scope.correct = null;
 
-    $scope.reRender = function() { return; }
-    $scope.actionLQ = null;
-    $scope.alphaBeta = function() {
-      if (!$scope.actionLQ) {
-        $scope.actionLQ = $scope.tree.alphaBeta();
-      }
-      $scope.actionLQ.inAction = true;
-    }
-    $scope.stepForward = function() {
-      if ($scope.actionLQ) {
-        $scope.actionLQ.stepForward();
-        $scope.reRender();
-      }
-    }
-    $scope.stepBackward = function() {
-      if ($scope.actionLQ) {
-        $scope.actionLQ.stepBackward();
-        $scope.reRender();
-      }
-    }
-
     $scope.resetTree = function() {
       $scope.tree.reset();
       $scope.reRender();
@@ -105,13 +490,80 @@ angular.module('abTreePractice', ['d3'])
       $scope.reRender();
     }
 
+    $scope.reRender = function() { return; }
+    $scope.actionLQ = null;
+
+    $scope.toggleABVisual = function() {
+      if (!$scope.actionLQ) {
+        $scope.actionLQ = $scope.tree.alphaBeta();
+      }
+      $scope.resetTree();
+      if ($scope.actionLQ.inAction) {
+        $scope.actionLQ.goToBeginning();
+        $scope.tree.mutable = true;
+        $scope.actionLQ.inAction = false;
+        return;
+      }
+      $scope.tree.mutable = false;
+      $scope.actionLQ.inAction = true;
+      $scope.correct = null;
+    }
+    $scope.stepBackward = function() {
+      var ret = false;
+      if ($scope.actionLQ) {
+        ret = $scope.actionLQ.stepBackward();
+        $scope.reRender();
+      }
+      return ret;
+    }
+    $scope.stepForward = function() {
+      var ret = false;
+      if ($scope.actionLQ) {
+        ret = $scope.actionLQ.stepForward();
+        $scope.reRender();
+      }
+      return ret;
+    }
+    $scope.goToBeginning = function() {
+      $scope.actionLQ.goToBeginning();
+      $scope.reRender();
+    }
+    $scope.goToEnd = function() {
+      $scope.actionLQ.goToEnd();
+      $scope.reRender();
+    }
+
+    $scope.timeStep = 850;
+    $scope.play = function() {
+      var end = false;
+      var step = function() {
+        var res = $scope.stepForward();
+        if (res) {
+          $scope.playTimeout = $timeout(step, $scope.timeStep);
+        }
+      };
+      step();
+    }
+    $scope.pause = function() {
+      $timeout.cancel($scope.playTimeout);
+    }
+    $scope.slider = new Slider('input.slider', {
+      reversed: true,
+      formatter: function(value) {
+        return (value / 1000) + 's per action';
+      },
+    }).on('slide', function(e) {
+      $scope.timeStep = e;
+    });
+
   }])
   .directive('abTree',
-      ['NodeEnum',
+      ['EnumService',
        'd3Service',
        '$window',
        '$document',
-       function(NodeEnum, d3Service, $window, $document) {
+       function(EnumService, d3Service, $window, $document) {
+    var TreeNodeTypeEnum = EnumService.TreeNodeTypeEnum;
     return {
       restrict: 'E',
       scope: {
@@ -120,7 +572,8 @@ angular.module('abTreePractice', ['d3'])
       },
       link: function(scope, element, attrs) {
         angular.element($document).ready(function () {
-          var svgMargin = 40,
+          var svgMargin = 100,
+              topMargin = 100,
               nodeSideLength = 80,
               triNodeHeight = Math.sqrt(Math.pow(nodeSideLength, 2) -
                   Math.pow((nodeSideLength/2), 2)),
@@ -153,13 +606,13 @@ angular.module('abTreePractice', ['d3'])
             var root = scope.tree.rootNode,
                 bFac = scope.tree.branchingFactor,
                 maxDepth = scope.tree.depth,
-                yOffset = (svgHeight - (2 * svgMargin)) / (maxDepth + 1);
+                yOffset = (svgHeight - (svgMargin + topMargin)) / (maxDepth - 1);
 
             var renderD3SubTree = function(curNode, xMin, xMax, nodes, links) {
               if (!curNode) { return; }
               var range = xMax - xMin;
               var newOffset = range / bFac;
-              var yPos = svgMargin + (yOffset * curNode.depth);
+              var yPos = topMargin + (yOffset * (curNode.depth - 1));
               var xPos = xMin + (range / 2);
 
               curNode.id = ++lastNodeId;
@@ -218,6 +671,7 @@ angular.module('abTreePractice', ['d3'])
             newLinks.append('svg:path')
               .attr('class', 'mouselink')
               .on('mousedown', function(d) {
+                if (!scope.tree.mutable) { return; }
                 d.pruned = !d.pruned;
                 scope.reRender();
               })
@@ -258,7 +712,7 @@ angular.module('abTreePractice', ['d3'])
             var newNodes = vertex.enter().append('svg:g')
               .classed('node', true)
               .classed('leaf', function(d) {
-                return (d.nodeType == NodeEnum.leafNode);
+                return (d.nodeType == TreeNodeTypeEnum.leafNode);
               });
             newNodes.append('svg:path')
               .classed('nodepath', true)
@@ -267,7 +721,7 @@ angular.module('abTreePractice', ['d3'])
               })
               .attr('d', function(d) {
                 var s = nodeSideLength;
-                if (d.nodeType == NodeEnum.leafNode) {
+                if (d.nodeType == TreeNodeTypeEnum.leafNode) {
                   var ns = s / 2.1;
                   var a = (s - ns) / 2;
                   // square leaf nodes
@@ -286,6 +740,7 @@ angular.module('abTreePractice', ['d3'])
               })
               .on('mousedown', function(d) {
                 // select node
+                if (!scope.tree.mutable) { return; }
                 mousedownNode = d;
                 d.oldVal = d.value;
                 scope.reRender();
@@ -307,16 +762,16 @@ angular.module('abTreePractice', ['d3'])
               .attr('transform', function(d) {
                 var halfSide = nodeSideLength / 2;
                 var t = '', r = '';
-                if (d.nodeType == NodeEnum.leafNode) {
+                if (d.nodeType == TreeNodeTypeEnum.leafNode) {
                   t = 'translate(' +
                            (d.x - halfSide) + ',' +
                            (d.y + halfSide) + ')';
                   r = '';
-                } else if (d.nodeType == NodeEnum.maxNode) {
+                } else if (d.nodeType == TreeNodeTypeEnum.maxNode) {
                   t = 'translate(' +
                            (d.x - halfSide) + ',' +
                            (d.y + triCenterFromBaseDist) + ')';
-                } else if (d.nodeType == NodeEnum.minNode) {
+                } else if (d.nodeType == TreeNodeTypeEnum.minNode) {
                   t = 'translate(' +
                            (d.x + halfSide) + ',' +
                            (d.y - triCenterFromBaseDist) + ')';

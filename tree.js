@@ -32,6 +32,7 @@ function Tree(rootNode, treeType, depth, branchingFactor) {
   this.treeType = treeType;
   this.depth = depth;
   this.branchingFactor = branchingFactor;
+  this.mutable = true;
 }
 Tree.generateABTreeRootNode = function(treeType, maxDepth, branchingFactor, minVal, maxVal) {
   function generateSubTree(parentNode, nodeType, depth, bFac) {
@@ -309,14 +310,17 @@ function ActionListQueue() {
   this.inAction = false;
   this.lastAction = -1;
   this.actionListQueue = []
+  this.length = 0;
 }
 ActionListQueue.prototype.pushActionList = function(actionList) {
   if (this.inAction) { throw "Cannot push action list while queue is active"; }
   this.actionListQueue.push(actionList);
+  this.length += 1;
 }
 ActionListQueue.prototype.extendActionList = function(actionLists) {
   if (this.inAction) { throw "Cannot push action list while queue is active"; }
   this.actionListQueue.extend(actionLists);
+  this.length += actionLists.length;
 }
 ActionListQueue.prototype.stepForward = function() {
   if (!this.inAction ||
@@ -345,13 +349,26 @@ ActionListQueue.prototype.stepBackward = function() {
   this.lastAction -= 1;
   return true;
 }
-ActionListQueue.prototype.playThrough = function() {
-  this.inAction = true;
+ActionListQueue.prototype.goToEnd = function() {
+  if (!this.inAction) { return; }
   while (this.stepForward()) {}
-  this.inAction = false;
 }
-ActionListQueue.prototype.revertToBeginning = function() {
-  this.inAction = true;
+ActionListQueue.prototype.goToBeginning = function() {
+  if (!this.inAction) { return; }
   while (this.stepBackward()) {}
-  this.inAction = false;
+}
+ActionListQueue.prototype.play = function() {
+  if (!this.inAction) { return; }
+  var end = false;
+  var time = 300;
+  var step = function(aq) {
+    var res = aq.stepForward();
+    if (res) {
+      setTimeout(step.bind(aq));
+    }
+  };
+  step(this);
+}
+ActionListQueue.prototype.pause = function() {
+  clearTimeout(this.playTimeout);
 }
