@@ -16,39 +16,43 @@
         <div class="navbar-header">
           <span class="navbar-brand">Alpha-Beta Pruning Practice</span>
         </div>
+        <div class="nav navbar-nav navbar-right">
+          <li ng-click="setUseAb(true)" class="{{useAb ? 'active' : ''}}"><a>αβ</a></li>
+          <li ng-click="setUseAb(false)" class="{{!useAb ? 'active' : ''}}"><a>Cutoff</a></li>
+        </div>
       </div>
     </nav>
     <div class="container-fluid nopadding">
-      <ab-tree class="ab-tree" tree="tree" re-render="reRender"></ab-tree>
+      <ab-tree class="ab-tree" tree="tree" use-ab="useAb" re-render="reRender"></ab-tree>
       <div class="container-fluid ctrl-panel">
         <div class="row text-center">
           <button ng-click="toggleABVisual()" type="button" class="btn btn-default">
-            {{actionLQ.inAction ? 'Stop' : 'Start'}} αβ Visualization
+            {{actionLQ.inAction ? 'Stop' : 'Start'}} Animation
           </button>
         </div>
-        <div class="row text-center">
-          <div class="btn-group">
-            <button ng-disabled="!actionLQ.inAction" ng-click="play()" type="button" class="btn btn-default">
-              <span class="glyphicon glyphicon-play"></span>
-            </button>
-            <button ng-disabled="!actionLQ.inAction" ng-click="pause()" type="button" class="btn btn-default">
-              <span class="glyphicon glyphicon-pause"></span>
-            </button>
-            <button ng-disabled="!actionLQ.inAction" ng-click="stepBackward()" type="button" class="btn btn-default">
-              <span class="glyphicon glyphicon-backward"></span>
-            </button>
-            <button ng-disabled="!actionLQ.inAction" ng-click="stepForward()" type="button" class="btn btn-default">
-              <span class="glyphicon glyphicon-forward"></span>
-            </button>
-            <button ng-disabled="!actionLQ.inAction" ng-click="goToBeginning()" type="button" class="btn btn-default">
-              <span class="glyphicon glyphicon-fast-backward"></span>
-            </button>
-            <button ng-disabled="!actionLQ.inAction" ng-click="goToEnd()" type="button" class="btn btn-default">
-              <span class="glyphicon glyphicon-fast-forward"></span>
-            </button>
-          </div>
-        </div>
         <div class="{{actionLQ.inAction ? '' : 'hidden'}}">
+          <div class="row text-center">
+            <div class="btn-group">
+              <button ng-disabled="!actionLQ.inAction" ng-click="play()" type="button" class="btn btn-default">
+                <span class="glyphicon glyphicon-play"></span>
+              </button>
+              <button ng-disabled="!actionLQ.inAction" ng-click="pause()" type="button" class="btn btn-default">
+                <span class="glyphicon glyphicon-pause"></span>
+              </button>
+              <button ng-disabled="!actionLQ.inAction" ng-click="stepBackward()" type="button" class="btn btn-default">
+                <span class="glyphicon glyphicon-backward"></span>
+              </button>
+              <button ng-disabled="!actionLQ.inAction" ng-click="stepForward()" type="button" class="btn btn-default">
+                <span class="glyphicon glyphicon-forward"></span>
+              </button>
+              <button ng-disabled="!actionLQ.inAction" ng-click="goToBeginning()" type="button" class="btn btn-default">
+                <span class="glyphicon glyphicon-fast-backward"></span>
+              </button>
+              <button ng-disabled="!actionLQ.inAction" ng-click="goToEnd()" type="button" class="btn btn-default">
+                <span class="glyphicon glyphicon-fast-forward"></span>
+              </button>
+            </div>
+          </div>
           <div class="row text-center">
             <div class="progress">
               <div class="progress-bar" 
@@ -67,9 +71,9 @@
             <input class="slider"
                    type="text" 
                    data-placement="bottom"
-                   data-slider-min="50" 
-                   data-slider-max="1650" 
-                   data-slider-step="50" 
+                   data-slider-min="25" 
+                   data-slider-max="1675" 
+                   data-slider-step="25" 
                    data-slider-value="850"
             />
             <label class="slider-label right">Fast</label>
@@ -131,6 +135,9 @@
     </div>
     <div class="info">
       <span>Developed by <a href="http://alekskamko.com">Aleks Kamko</a> for UC Berkeley <a href="http://inst.eecs.berkeley.edu/~cs61b/">CS61B</a></span>
+    </div>
+    <div class="prune-info">
+      <span>Nodes are pruned when {{useAb ? 'β ≤ α' : 'value is in cutoff range'}}.</span>
     </div>
   </body>
 </html>

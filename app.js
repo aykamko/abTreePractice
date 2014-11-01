@@ -1,12 +1,3 @@
-function computeTextWidth(text, font) {
-  // re-use canvas object for better performance
-  var canvas = computeTextWidth.canvas || (computeTextWidth.canvas = document.createElement("canvas"));
-  var context = canvas.getContext("2d");
-  context.font = font;
-  var metrics = context.measureText(text);
-  return metrics.width;
-};
-
 Array.prototype.extend = function(array) {
   Array.prototype.push.apply(this, array);
 }
@@ -248,6 +239,10 @@ angular.module('Tree', ['Enums', 'ActionListQueue'])
             child = node.getKthChild(k);
             if (pruneRest) {
               lastChildExitActions.extend(generatePruneActionList(child, bFac));
+              lastChildExitActions.push(
+                new Action(node, 'pruned', false, true)
+              );
+              node.__pruned = true;
             } else {
               res = abActions(child, bFac, a, b, !maxNode, actionLQ);
               setValActions = [];
@@ -282,6 +277,10 @@ angular.module('Tree', ['Enums', 'ActionListQueue'])
             child = node.getKthChild(k);
             if (pruneRest) {
               lastChildExitActions.extend(generatePruneActionList(child, bFac));
+              lastChildExitActions.push(
+                new Action(node, 'pruned', false, true)
+              );
+              node.__pruned = true;
             } else {
               res = abActions(child, bFac, a, b, !maxNode, actionLQ);
               setValActions = [];
@@ -384,6 +383,7 @@ angular.module('Tree', ['Enums', 'ActionListQueue'])
         node.value = node.__value;
         node.alpha = node.__alpha;
         node.beta = node.__beta;
+        node.pruned = node.__pruned;
         for (var k = 0; k < node.childNum; k++) {
           setSolutionForSubTree(node.getKthChild(k));
         }
@@ -402,13 +402,13 @@ angular.module('Tree', ['Enums', 'ActionListQueue'])
     }
     TreeNode.prototype.setKthChild = function(k, child) {
       if (k >= this.childNum) {
-        throw "Error: node only holds " + k + " children."
+        throw 'Error: node only holds ' + k + ' children.'
       }
       this.children[k] = child;
     }
     TreeNode.prototype.getKthChild = function(k) {
       if (k >= this.childNum) {
-        throw "Error: node only holds " + k + " children."
+        throw 'Error: node only holds ' + k + ' children.'
       }
       return this.children[k];
     }
@@ -443,6 +443,10 @@ angular.module('abTreePractice', ['d3', 'Enums', 'Tree'])
     var TreeNodeTypeEnum = EnumService.TreeNodeTypeEnum;
     var Tree = TreeService.Tree;
 
+    $scope.useAb = true;
+    $scope.setUseAb = function(bool) {
+      $scope.useAb = bool;
+    }
     $scope.maxVal = 20;
 
     $scope.generateRootNode = function(maxFirst) {
@@ -455,7 +459,7 @@ angular.module('abTreePractice', ['d3', 'Enums', 'Tree'])
       );
       $scope.actionLQ = null;
     };
-    $scope.tree = new Tree(null, TreeNodeTypeEnum.maxNode, 3, 3);
+    $scope.tree = new Tree(null, TreeNodeTypeEnum.maxNode, 4, 3);
     $scope.generateRootNode();
 
     $scope.incrBranchingFactor = function(incr) {
@@ -569,6 +573,7 @@ angular.module('abTreePractice', ['d3', 'Enums', 'Tree'])
       scope: {
         tree: '=',
         reRender: '=',
+        useAb: '=',
       },
       link: function(scope, element, attrs) {
         angular.element($document).ready(function () {
@@ -638,7 +643,11 @@ angular.module('abTreePractice', ['d3', 'Enums', 'Tree'])
           };
 
           scope.$watch(function() { return scope.tree.rootNode; },
-              scope.renderD3Tree);
+            scope.renderD3Tree
+          );
+          scope.$watch('useAb', function() {
+            scope.reRender();
+          });
 
           angular.element($window).bind('resize', function() {
             scope.onResize();
@@ -656,6 +665,17 @@ angular.module('abTreePractice', ['d3', 'Enums', 'Tree'])
           // mouse event vars
           var selectedNode = null,
               mousedownNode = null;
+
+          // compute text width for cursor
+          function computeTextWidth(text, font) {
+            // re-use canvas object for better performance
+            var canvas = computeTextWidth.canvas ||
+              (computeTextWidth.canvas = $document[0].createElement('canvas'));
+            var context = canvas.getContext('2d');
+            context.font = font;
+            var metrics = context.measureText(text);
+            return metrics.width;
+          };
 
           // update graph (called when needed)
           scope.reRender = function() {
@@ -725,18 +745,18 @@ angular.module('abTreePractice', ['d3', 'Enums', 'Tree'])
                   var ns = s / 2.1;
                   var a = (s - ns) / 2;
                   // square leaf nodes
-                  return 'M' + a + "," + -a +
-                         'L' + (ns + a) + "," + -a +
-                         'L' + (ns + a) + "," + (-ns - a) +
-                         'L' + a + "," + (-ns - a) +
-                         'L' + a + "," + -a;
+                  return 'M' + a + ',' + -a +
+                         'L' + (ns + a) + ',' + -a +
+                         'L' + (ns + a) + ',' + (-ns - a) +
+                         'L' + a + ',' + (-ns - a) +
+                         'L' + a + ',' + -a;
                 }
                 var h = triNodeHeight;
                 // triangular min/max nodes
-                return 'M' + 0 + "," + 0 +
-                       'L' + s + "," + 0 +
-                       'L' + (s/2) + "," + -h +
-                       'L' + 0 + "," + 0;
+                return 'M' + 0 + ',' + 0 +
+                       'L' + s + ',' + 0 +
+                       'L' + (s/2) + ',' + -h +
+                       'L' + 0 + ',' + 0;
               })
               .on('mousedown', function(d) {
                 // select node
@@ -749,6 +769,8 @@ angular.module('abTreePractice', ['d3', 'Enums', 'Tree'])
             newNodes.append('svg:text')
               .attr('class', 'value');
             newNodes.append('svg:text')
+              .attr('class', 'prunemsg');
+            newNodes.append('svg:text')
               .attr('class', 'alpha');
             newNodes.append('svg:text')
               .attr('class', 'beta');
@@ -757,7 +779,9 @@ angular.module('abTreePractice', ['d3', 'Enums', 'Tree'])
             vertex.exit().remove();
 
             // update existing nodes
-            vertex.classed('entered', function(d) { return d.entered; });
+            vertex
+              .classed('entered', function(d) { return d.entered; })
+              .classed('pruned', function(d) { return d.pruned; });
             vertex.select('path.nodepath')
               .attr('transform', function(d) {
                 var halfSide = nodeSideLength / 2;
@@ -789,15 +813,25 @@ angular.module('abTreePractice', ['d3', 'Enums', 'Tree'])
               .attr('x', function(d) { return d.x + 45 })
               .attr('y', function(d) { return d.y - 4; })
               .text(function(d) {
-                if (d.alpha == null || d.beta == null) { return '' };
-                return "α: " + d.alpha.toString().replace('Infinity', '∞');
+                if (d.alpha == null || d.beta == null) { return; };
+                if (!scope.useAb) {
+                  var val;
+                  if (d.nodeType == TreeNodeTypeEnum.maxNode) {
+                    val = '≥ ' + d.beta.toString().replace('Infinity', '∞');
+                  } else if (d.nodeType == TreeNodeTypeEnum.minNode) {
+                    val = '≤ ' + d.alpha.toString().replace('Infinity', '∞');
+                  }
+                  return 'c ' + val;
+                }
+                return 'α: ' + d.alpha.toString().replace('Infinity', '∞');
               });
             vertex.select('text.beta')
               .attr('x', function(d) { return d.x + 45 })
               .attr('y', function(d) { return d.y + 16; })
               .text(function(d) {
-                if (d.alpha == null || d.beta == null) { return '' };
-                return "β: " + d.beta.toString().replace('Infinity', '∞');
+                if (d.alpha == null || d.beta == null) { return; };
+                if (!scope.useAb) { return; };
+                return 'β: ' + d.beta.toString().replace('Infinity', '∞');
               });
             // update existing cursor
             vertex.select('rect.cursor')
@@ -810,7 +844,7 @@ angular.module('abTreePractice', ['d3', 'Enums', 'Tree'])
 
                 var subStrLength = computeTextWidth(
                     valStr.substring(0, valCharIndex),
-                    "18px Helvetica Neue"
+                    '18px Helvetica Neue'
                 );
 
                 return node.x + (subStrLength - (valSVGLength / 2));
