@@ -55,7 +55,7 @@ svg {
   padding: 10px;
   margin: 10px;
   background: rgba(0, 0, 0, 0.08);
-  border: 1px solid #ccc;
+  border-radius: 4px;
   font-size: 12px;
 }
 
