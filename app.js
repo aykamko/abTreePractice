@@ -898,31 +898,23 @@ angular.module('abTreePractice', ['d3', 'Enums', 'Tree'])
               valStr = (nodeValue == null) ? '' : nodeValue.toString();
               valCharIndex = valStr.length;
 
-              window.v = selectedNode.nodeEle
               cursorRect = selectedNode.nodeEle
                 .append('svg:rect')
                 .attr('class', 'cursor')
                 .attr('height', 16.5)
-                .attr('width', 1.5);
+                .attr('width', 1.5)
+                .attr('opacity', 1);
 
-              /*
-              cursorRect.append('svg:set')
-                .attr('id', 'show')
-                .attr('attributeName', 'visibility')
-                .attr('attributeType', 'CSS')
-                .attr('to', 'visible')
-                .attr('begin', '0s; hide.end')
-                .attr('dur', '0.5s')
-                .attr('fill', 'frozen');
-              cursorRect.append('svg:set')
-                .attr('id', 'hide')
-                .attr('attributeName', 'visibility')
-                .attr('attributeType', 'CSS')
-                .attr('to', 'hidden')
-                .attr('begin', 'show.end')
-                .attr('dur', '0.5s')
-                .attr('fill', 'frozen');
-              */
+              (function fadeRepeat() {
+                if (!cursorRect) { return; }
+                cursorRect.transition()
+                  .duration(750)
+                  .attr('opacity', 0)
+                 .transition()
+                  .duration(750)
+                  .attr('opacity', 1)
+                  .each('end', fadeRepeat);
+              })();
 
               scope.reRender();
             }
