@@ -8,3 +8,5 @@ Possible Future Work:
 - Variable branching factor per depth
 - Expectimax
 - General minimax
+
+change 1
