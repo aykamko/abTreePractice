@@ -1,13 +1,5 @@
-abTreePractice
+abTreePractice ([demo](http://alphabeta.alekskamko.com))
 ==============
 
-Alpha-Beta Pruning Practice App
-
-Possible Future Work:
-=======
-- Variable branching factor per depth
-- Expectimax
-- General minimax
-
-change 1
-change 2
+D3.js web app for visualizing and understanding the Alpha-Beta Pruning
+algorithm.  Developed for UC Berkeley's CS61B.
