@@ -16,6 +16,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.5/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-slider/5.0.12/css/bootstrap-slider.min.css">
     <link rel="stylesheet" href="app.css">
+    <script async defer src="https://buttons.github.io/buttons.js"></script>
   </head>
   <body ng-controller="MainCtrl">
     <nav class="navbar navbar-inverse navbar-static-top nomargin" role="navigation">
@@ -141,7 +142,15 @@
       </div>
     </div>
     <div class="info">
-      <span>Developed by <a href="http://alekskamko.com">Aleks Kamko</a> for UC Berkeley <a href="http://inst.eecs.berkeley.edu/~cs61b/">CS61B</a> (<a href="https://github.com/aykamko/abTreePractice">Github project</a>)</span>
+      <a
+        class="github-button" href="https://github.com/aykamko/abTreePractice"
+        data-count-href="/aykamko/abTreePractice/stargazers"
+        data-count-api="/repos/aykamko/abTreePractice#stargazers_count" data-count-aria-label="#
+        stargazers on GitHub" aria-label="Star aykamko/abTreePractice on GitHub"
+      >Star</a>
+      <span>Developed by <a href="http://alekskamko.com">Aleks Kamko</a> for UC Berkeley <a
+          href="http://inst.eecs.berkeley.edu/~cs61b/">CS61B</a>
+	  </span>
     </div>
     <div class="prune-info">
       <span>Nodes are pruned when {{useAb ? 'β ≤ α' : 'value is in cutoff range'}}.</span>
